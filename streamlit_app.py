@@ -457,32 +457,40 @@ with compare_tab:
         .properties(height=250, title="Held-out prediction error")
     )
 
-    time_long = comparison.melt(
-        id_vars=["display_model"],
-        value_vars=["fit_seconds", "prediction_microseconds_per_sample"],
-        var_name="operation",
-        value_name="duration",
-    )
-    time_long["operation"] = time_long["operation"].map(
-        {"fit_seconds": "Fit (seconds)", "prediction_microseconds_per_sample": "Inference (µs/sample)"}
-    )
-    time_chart = (
-        alt.Chart(time_long)
+    fit_cost_chart = (
+        alt.Chart(comparison)
         .mark_bar(color=ACCENT)
         .encode(
-            y=alt.Y("display_model:N", title=None),
-            x=alt.X("duration:Q", title="Duration — logarithmic scale", scale=alt.Scale(type="log")),
-            row=alt.Row("operation:N", title=None),
-            tooltip=["display_model:N", "operation:N", alt.Tooltip("duration:Q", format=".4f")],
+            y=alt.Y("display_model:N", title=None, sort="-x"),
+            x=alt.X("fit_seconds:Q", title="Training time (seconds)"),
+            tooltip=["display_model:N", alt.Tooltip("fit_seconds:Q", title="Seconds", format=".4f")],
         )
-        .properties(height=115, title="Training and inference cost")
+        .properties(height=125, title="Training cost")
+    )
+    inference_cost_chart = (
+        alt.Chart(comparison)
+        .mark_bar(color=ACCENT)
+        .encode(
+            y=alt.Y("display_model:N", title=None, sort="-x"),
+            x=alt.X("prediction_microseconds_per_sample:Q", title="Inference (µs/sample)"),
+            tooltip=[
+                "display_model:N",
+                alt.Tooltip(
+                    "prediction_microseconds_per_sample:Q",
+                    title="µs/sample",
+                    format=".4f",
+                ),
+            ],
+        )
+        .properties(height=125, title="Inference cost")
     )
 
     left_chart, right_chart = st.columns(2)
     with left_chart:
         st.altair_chart(chart_style(error_chart), use_container_width=True)
     with right_chart:
-        st.altair_chart(chart_style(time_chart), use_container_width=True)
+        st.altair_chart(chart_style(fit_cost_chart), use_container_width=True)
+        st.altair_chart(chart_style(inference_cost_chart), use_container_width=True)
 
     comparison_table = comparison[
         [
