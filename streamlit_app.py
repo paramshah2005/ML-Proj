@@ -10,6 +10,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 ROOT = Path(__file__).resolve().parent
@@ -428,15 +429,23 @@ with predict_tab:
             "Predicted orientation difference",
             f'{pose_error["orientation_error_deg"]:.2f}°',
         )
-        st.plotly_chart(
-            motion_figure,
-            width="stretch",
+        motion_html = motion_figure.to_html(
+            full_html=False,
+            include_plotlyjs=True,
+            auto_play=False,
             config={
                 "displaylogo": False,
                 "responsive": True,
                 "scrollZoom": True,
             },
-            key=f"robot_motion_{selected_key}_{int(sample_index)}",
+            default_width="100%",
+            default_height="650px",
+        )
+        components.html(
+            '<style>html,body{margin:0;background:#0B0C0A;overflow:hidden;}</style>'
+            + motion_html,
+            height=700,
+            scrolling=False,
         )
         st.caption("Dataset-calibrated kinematic visualization; motion is not collision checked.")
 
