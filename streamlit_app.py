@@ -334,8 +334,10 @@ with predict_tab:
     sample = source_predictions.iloc[int(sample_index)]
 
     def populate_random_input() -> None:
-        random_index = int(np.random.default_rng().integers(len(source_predictions)))
-        random_sample = source_predictions.iloc[random_index]
+        valid_samples = source_predictions[source_predictions["z"] >= 0]
+
+random_index = int(np.random.default_rng().integers(len(valid_samples)))
+random_sample = valid_samples.iloc[random_index]
         for feature in FEATURES[:6]:
             st.session_state[
                 f"pose_{feature}_{sample_index}_{selected_key}"
