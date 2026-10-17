@@ -52,9 +52,24 @@
     "target_scaling": "standard",
     "max_fit_samples": null
   },
-  "mean_joint_mae_rad": 0.10944569878503284,
-  "mean_joint_rmse_rad": 0.15770921097570004,
+  "mean_joint_mae_rad": 0.10944569878503256,
+  "mean_joint_rmse_rad": 0.15770921097569965,
   "mean_joint_r2": 0.991737824362683,
-  "global_mae_rad": 0.10944569878503257,
-  "global_rmse_rad": 0.18274976555046082
+  "global_mae_rad": 0.10944569878503256,
+  "global_rmse_rad": 0.18274976555046082,
+  "mean_joint_delta_mae_rad": 0.10944569878503256,
+  "mean_joint_delta_rmse_rad": 0.15770921097569965,
+  "mean_joint_delta_r2": -9.022253609146766,
+  "baseline_mean_joint_mae_rad": 0.0500192525925926,
+  "baseline_mean_joint_rmse_rad": 0.05773509136166436,
+  "baseline_global_rmse_rad": 0.057735199479077653,
+  "rmse_improvement_over_baseline_percent": -216.53093294790906,
+  "mean_cartesian_position_error_mm": 107.64276815538572,
+  "median_cartesian_position_error_mm": 79.76346916632494,
+  "p95_cartesian_position_error_mm": 282.993007121869,
+  "mean_orientation_error_deg": 18.877508412889593,
+  "median_orientation_error_deg": 13.746664234654036,
+  "p95_orientation_error_deg": 52.2485244802103,
+  "baseline_mean_cartesian_position_error_mm": 77.6722225908897,
+  "baseline_mean_orientation_error_deg": 7.478619909875668
 }

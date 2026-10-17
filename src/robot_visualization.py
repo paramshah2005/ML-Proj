@@ -112,6 +112,70 @@ def calculate_pose_error(
     }
 
 
+def calculate_pose_errors_batch(
+    joints: np.ndarray, target_poses: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return per-row Cartesian and orientation errors for joint predictions."""
+    joint_matrix = np.asarray(joints, dtype=float)
+    pose_matrix = np.asarray(target_poses, dtype=float)
+    if joint_matrix.ndim != 2 or joint_matrix.shape[1] != 6:
+        raise ValueError("joints must have shape (rows, 6).")
+    if pose_matrix.shape != joint_matrix.shape:
+        raise ValueError("target_poses must have the same (rows, 6) shape as joints.")
+    if not np.isfinite(joint_matrix).all() or not np.isfinite(pose_matrix).all():
+        raise ValueError("Batch pose-error inputs must contain only finite values.")
+
+    row_count = len(joint_matrix)
+    transforms = np.repeat(np.eye(4)[np.newaxis, :, :], row_count, axis=0)
+    theta = joint_matrix + JOINT_OFFSETS_RAD
+    for index in range(6):
+        cos_theta = np.cos(theta[:, index])
+        sin_theta = np.sin(theta[:, index])
+        cos_alpha = np.cos(DH_ALPHA_RAD[index])
+        sin_alpha = np.sin(DH_ALPHA_RAD[index])
+        step = np.zeros((row_count, 4, 4), dtype=float)
+        step[:, 0, 0] = cos_theta
+        step[:, 0, 1] = -sin_theta * cos_alpha
+        step[:, 0, 2] = sin_theta * sin_alpha
+        step[:, 0, 3] = DH_A_MM[index] * cos_theta
+        step[:, 1, 0] = sin_theta
+        step[:, 1, 1] = cos_theta * cos_alpha
+        step[:, 1, 2] = -cos_theta * sin_alpha
+        step[:, 1, 3] = DH_A_MM[index] * sin_theta
+        step[:, 2, 1] = sin_alpha
+        step[:, 2, 2] = cos_alpha
+        step[:, 2, 3] = DH_D_MM[index]
+        step[:, 3, 3] = 1.0
+        transforms = transforms @ step
+
+    position_errors = np.linalg.norm(
+        transforms[:, :3, 3] - pose_matrix[:, :3],
+        axis=1,
+    )
+
+    yaw = pose_matrix[:, 3]
+    pitch = pose_matrix[:, 4]
+    roll = pose_matrix[:, 5]
+    cy, sy = np.cos(yaw), np.sin(yaw)
+    cp, sp = np.cos(pitch), np.sin(pitch)
+    cr, sr = np.cos(roll), np.sin(roll)
+    target_rotations = np.empty((row_count, 3, 3), dtype=float)
+    target_rotations[:, 0, 0] = cy * cp
+    target_rotations[:, 0, 1] = cy * sp * sr - sy * cr
+    target_rotations[:, 0, 2] = cy * sp * cr + sy * sr
+    target_rotations[:, 1, 0] = sy * cp
+    target_rotations[:, 1, 1] = sy * sp * sr + cy * cr
+    target_rotations[:, 1, 2] = sy * sp * cr - cy * sr
+    target_rotations[:, 2, 0] = -sp
+    target_rotations[:, 2, 1] = cp * sr
+    target_rotations[:, 2, 2] = cp * cr
+
+    rotation_products = np.sum(target_rotations * transforms[:, :3, :3], axis=(1, 2))
+    cosine = np.clip((rotation_products - 1.0) / 2.0, -1.0, 1.0)
+    orientation_errors = np.degrees(np.arccos(cosine))
+    return position_errors, orientation_errors
+
+
 def _joint_geometry(transforms: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     positions = transforms[:, :3, 3]
     joint_origins = transforms[:-1, :3, 3]

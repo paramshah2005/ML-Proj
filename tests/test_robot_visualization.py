@@ -16,6 +16,7 @@ from robot_visualization import (  # noqa: E402
     FRAME_COUNT,
     build_motion_figure,
     calculate_pose_error,
+    calculate_pose_errors_batch,
     forward_kinematics,
     tool_pose_from_joints,
 )
@@ -51,6 +52,23 @@ class RobotVisualizationTests(unittest.TestCase):
         error = calculate_pose_error(joints, target)
         self.assertLess(error["position_error_mm"], 1e-9)
         self.assertLess(error["orientation_error_deg"], 1e-6)
+
+    def test_batch_pose_errors_match_single_pose_calculation(self) -> None:
+        poses = np.asarray([fixture[0] for fixture in FIXTURES], dtype=float)
+        joints = np.asarray([fixture[1] for fixture in FIXTURES], dtype=float)
+        position_errors, orientation_errors = calculate_pose_errors_batch(joints, poses)
+        for index, (pose, joint) in enumerate(zip(poses, joints, strict=True)):
+            expected = calculate_pose_error(joint, pose)
+            self.assertAlmostEqual(
+                position_errors[index],
+                expected["position_error_mm"],
+                places=9,
+            )
+            self.assertAlmostEqual(
+                orientation_errors[index],
+                expected["orientation_error_deg"],
+                places=9,
+            )
 
     def test_animation_endpoints_and_finite_coordinates(self) -> None:
         target_pose, predicted = FIXTURES[0]

@@ -8,6 +8,8 @@ This Streamlit dashboard predicts the six desired ABB IRB2400 joint angles from:
 
 It loads the existing linear regression, RBF-SVR, decision-tree, and optional Nystroem + SGD artifacts. It also compares their saved test metrics and visualizes held-out prediction errors.
 
+The comparison includes absolute joint error, joint-correction R², the direct `q_out = q_in` baseline, and forward-kinematics Cartesian and orientation errors. Existing saved predictions can be backfilled without retraining by running `python src/refresh_evaluation_metrics.py`.
+
 After a prediction, an interactive 3D technical skeleton animates from the current joint state to the predicted target state. The view includes play and scrub controls, a desired tool-pose marker, and dataset-calibrated Cartesian and orientation error readouts. It is a kinematic visualization and does not perform collision or dynamics simulation.
 
 ## Run locally

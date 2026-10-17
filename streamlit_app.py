@@ -466,6 +466,10 @@ with predict_tab:
         if unchanged_test_record:
             result["actual_rad"] = actual
             result["abs_error_rad"] = np.abs(predicted - actual)
+            result["actual_delta_rad"] = actual - current
+            result["delta_error_rad"] = np.abs(
+                (predicted - current) - (actual - current)
+            )
 
         status_col, latency_col, model_col = st.columns(3)
         status_col.metric("Output channels", "6 / 6")
@@ -662,6 +666,185 @@ with compare_tab:
     ).properties(height=170, title="Inference cost")
 
     st.altair_chart(chart_style(error_chart), use_container_width=True)
+
+    st.markdown("#### Motion-aware evaluation")
+    st.caption(
+        "Correction R² evaluates q_out − q_in directly. Correction MAE and RMSE equal the "
+        "absolute-angle errors algebraically, so R² and the q_out = q_in baseline expose whether "
+        "a model learned the requested movement."
+    )
+    best_delta = comparison.loc[comparison["mean_joint_delta_r2"].idxmax()]
+    best_position = comparison.loc[
+        comparison["mean_cartesian_position_error_mm"].idxmin()
+    ]
+    best_orientation = comparison.loc[
+        comparison["mean_orientation_error_deg"].idxmin()
+    ]
+    motion_metric_columns = st.columns(3)
+    motion_metric_columns[0].metric(
+        "Highest correction R²",
+        display_name(best_delta["model"]),
+        f'{best_delta["mean_joint_delta_r2"]:.5f}',
+    )
+    motion_metric_columns[1].metric(
+        "Lowest Cartesian error",
+        display_name(best_position["model"]),
+        f'{best_position["mean_cartesian_position_error_mm"]:.2f} mm',
+    )
+    motion_metric_columns[2].metric(
+        "Lowest orientation error",
+        display_name(best_orientation["model"]),
+        f'{best_orientation["mean_orientation_error_deg"]:.2f}°',
+    )
+
+    baseline_long = comparison.melt(
+        id_vars=["display_model"],
+        value_vars=["global_rmse_rad", "baseline_global_rmse_rad"],
+        var_name="prediction",
+        value_name="rmse_rad",
+    )
+    baseline_long["prediction"] = baseline_long["prediction"].map(
+        {
+            "global_rmse_rad": "Trained model",
+            "baseline_global_rmse_rad": "q_out = q_in baseline",
+        }
+    )
+    baseline_chart = (
+        alt.Chart(baseline_long)
+        .mark_bar()
+        .encode(
+            y=alt.Y("display_model:N", title=None),
+            x=alt.X("rmse_rad:Q", title="Global RMSE (rad)"),
+            yOffset="prediction:N",
+            color=alt.Color(
+                "prediction:N",
+                scale=alt.Scale(range=[ACCENT, MUTED]),
+                legend=alt.Legend(title=None),
+            ),
+            tooltip=[
+                alt.Tooltip("display_model:N", title="Model"),
+                "prediction:N",
+                alt.Tooltip("rmse_rad:Q", title="RMSE", format=".6f"),
+            ],
+        )
+        .properties(height=250, title="Model error versus zero-movement baseline")
+    )
+
+    correction_chart = (
+        alt.Chart(comparison)
+        .mark_bar(color=ACCENT)
+        .encode(
+            y=alt.Y("display_model:N", title=None, sort="-x"),
+            x=alt.X(
+                "mean_joint_delta_r2:Q",
+                title="Mean correction R² (symmetric log scale)",
+                scale=alt.Scale(type="symlog", constant=1),
+            ),
+            tooltip=[
+                alt.Tooltip("display_model:N", title="Model"),
+                alt.Tooltip("mean_joint_delta_r2:Q", title="Correction R²", format=".6f"),
+            ],
+        )
+        .properties(height=250, title="Joint-correction fit")
+    )
+
+    position_long = comparison.melt(
+        id_vars=["display_model"],
+        value_vars=[
+            "mean_cartesian_position_error_mm",
+            "baseline_mean_cartesian_position_error_mm",
+        ],
+        var_name="prediction",
+        value_name="position_error_mm",
+    )
+    position_long["prediction"] = position_long["prediction"].map(
+        {
+            "mean_cartesian_position_error_mm": "Trained model",
+            "baseline_mean_cartesian_position_error_mm": "q_out = q_in baseline",
+        }
+    )
+    position_chart = (
+        alt.Chart(position_long)
+        .mark_bar()
+        .encode(
+            y=alt.Y("display_model:N", title=None, sort="x"),
+            x=alt.X(
+                "position_error_mm:Q",
+                title="Mean Cartesian error (mm)",
+            ),
+            yOffset="prediction:N",
+            color=alt.Color(
+                "prediction:N",
+                scale=alt.Scale(range=[ACCENT, MUTED]),
+                legend=alt.Legend(title=None),
+            ),
+            tooltip=[
+                alt.Tooltip("display_model:N", title="Model"),
+                "prediction:N",
+                alt.Tooltip(
+                    "position_error_mm:Q",
+                    title="Position error (mm)",
+                    format=".3f",
+                ),
+            ],
+        )
+        .properties(height=250, title="Forward-kinematics position error")
+    )
+
+    orientation_long = comparison.melt(
+        id_vars=["display_model"],
+        value_vars=[
+            "mean_orientation_error_deg",
+            "baseline_mean_orientation_error_deg",
+        ],
+        var_name="prediction",
+        value_name="orientation_error_deg",
+    )
+    orientation_long["prediction"] = orientation_long["prediction"].map(
+        {
+            "mean_orientation_error_deg": "Trained model",
+            "baseline_mean_orientation_error_deg": "q_out = q_in baseline",
+        }
+    )
+    orientation_chart = (
+        alt.Chart(orientation_long)
+        .mark_bar()
+        .encode(
+            y=alt.Y("display_model:N", title=None, sort="x"),
+            x=alt.X(
+                "orientation_error_deg:Q",
+                title="Mean orientation error (degrees)",
+            ),
+            yOffset="prediction:N",
+            color=alt.Color(
+                "prediction:N",
+                scale=alt.Scale(range=[ACCENT, MUTED]),
+                legend=alt.Legend(title=None),
+            ),
+            tooltip=[
+                alt.Tooltip("display_model:N", title="Model"),
+                "prediction:N",
+                alt.Tooltip(
+                    "orientation_error_deg:Q",
+                    title="Orientation error (degrees)",
+                    format=".3f",
+                ),
+            ],
+        )
+        .properties(height=250, title="Forward-kinematics orientation error")
+    )
+
+    baseline_col, correction_col = st.columns(2)
+    with baseline_col:
+        st.altair_chart(chart_style(baseline_chart), width="stretch")
+    with correction_col:
+        st.altair_chart(chart_style(correction_chart), width="stretch")
+    position_col, orientation_col = st.columns(2)
+    with position_col:
+        st.altair_chart(chart_style(position_chart), width="stretch")
+    with orientation_col:
+        st.altair_chart(chart_style(orientation_chart), width="stretch")
+
     st.markdown("#### Computational cost")
     st.caption("The logarithmic scales keep all three models visible despite their large timing differences.")
     st.altair_chart(chart_style(fit_cost_chart), use_container_width=True)
@@ -673,6 +856,13 @@ with compare_tab:
             "mean_joint_mae_rad",
             "global_rmse_rad",
             "mean_joint_r2",
+            "mean_joint_delta_r2",
+            "baseline_global_rmse_rad",
+            "rmse_improvement_over_baseline_percent",
+            "mean_cartesian_position_error_mm",
+            "mean_orientation_error_deg",
+            "baseline_mean_cartesian_position_error_mm",
+            "baseline_mean_orientation_error_deg",
             "fit_seconds",
             "prediction_microseconds_per_sample",
         ]
@@ -721,12 +911,29 @@ with analysis_tab:
     model_mae, model_rmse = metric_pair(actual_values, model_values)
     baseline_mae, baseline_rmse = metric_pair(actual_values, baseline_values)
     improvement = 100.0 * (baseline_rmse - model_rmse) / baseline_rmse if baseline_rmse else 0.0
+    analysis_metrics = load_metrics(analysis_key)
+    per_joint = load_per_joint(analysis_key).copy()
+    selected_joint_metrics = per_joint.loc[per_joint["joint"] == actual_column].iloc[0]
 
     score_columns = st.columns(4)
     score_columns[0].metric("Model MAE", f"{model_mae:.5f} rad")
     score_columns[1].metric("Model RMSE", f"{model_rmse:.5f} rad")
     score_columns[2].metric("q_out = q_in RMSE", f"{baseline_rmse:.5f} rad")
     score_columns[3].metric("RMSE improvement", f"{improvement:.1f}%")
+
+    motion_score_columns = st.columns(3)
+    motion_score_columns[0].metric(
+        "Joint-correction R²",
+        f'{selected_joint_metrics["delta_r2"]:.5f}',
+    )
+    motion_score_columns[1].metric(
+        "Mean Cartesian error",
+        f'{analysis_metrics["mean_cartesian_position_error_mm"]:.2f} mm',
+    )
+    motion_score_columns[2].metric(
+        "Mean orientation error",
+        f'{analysis_metrics["mean_orientation_error_deg"]:.2f}°',
+    )
 
     scatter_frame = prediction_frame[[actual_column, predicted_column]].sample(
         n=min(5_000, len(prediction_frame)), random_state=42
@@ -779,7 +986,50 @@ with analysis_tab:
     with histogram_col:
         st.altair_chart(chart_style(histogram), use_container_width=True)
 
-    per_joint = load_per_joint(analysis_key).copy()
+    correction_frame = prediction_frame[
+        [actual_column, predicted_column, baseline_column]
+    ].sample(n=min(5_000, len(prediction_frame)), random_state=42)
+    correction_frame = pd.DataFrame(
+        {
+            "actual_correction": (
+                correction_frame[actual_column] - correction_frame[baseline_column]
+            ),
+            "predicted_correction": (
+                correction_frame[predicted_column] - correction_frame[baseline_column]
+            ),
+        }
+    )
+    correction_min = float(correction_frame.min().min())
+    correction_max = float(correction_frame.max().max())
+    correction_ideal = pd.DataFrame(
+        {
+            "actual_correction": [correction_min, correction_max],
+            "predicted_correction": [correction_min, correction_max],
+        }
+    )
+    correction_points = (
+        alt.Chart(correction_frame)
+        .mark_circle(size=18, opacity=0.28, color=ACCENT)
+        .encode(
+            x=alt.X("actual_correction:Q", title="Actual q_out − q_in (rad)"),
+            y=alt.Y("predicted_correction:Q", title="Predicted q_out − q_in (rad)"),
+            tooltip=[
+                alt.Tooltip("actual_correction:Q", format=".5f"),
+                alt.Tooltip("predicted_correction:Q", format=".5f"),
+            ],
+        )
+    )
+    correction_diagonal = (
+        alt.Chart(correction_ideal)
+        .mark_line(color=MUTED, strokeDash=[5, 5])
+        .encode(x="actual_correction:Q", y="predicted_correction:Q")
+    )
+    correction_scatter = (correction_points + correction_diagonal).properties(
+        height=390,
+        title=f"{analysis_joint.upper()} requested versus predicted correction",
+    )
+    st.altair_chart(chart_style(correction_scatter), use_container_width=True)
+
     joint_name_column = "target" if "target" in per_joint.columns else per_joint.columns[0]
     per_joint_chart = (
         alt.Chart(per_joint)
@@ -851,6 +1101,9 @@ with method_tab:
         )
     st.markdown(
         "- Every model is evaluated on the same 45,000 held-out rows.\n"
+        "- Motion-aware evaluation reports joint-correction R², compares each model against the "
+        "zero-movement baseline q_out = q_in, and converts predictions back into Cartesian and "
+        "orientation errors through the calibrated forward-kinematics chain.\n"
         "- The 3D motion preview uses a dataset-calibrated six-axis kinematic chain to map joint "
         "states back to end-effector position and orientation. It is a kinematic visualization, "
         "not a collision, dynamics, controller-safety, or physical-calibration system."

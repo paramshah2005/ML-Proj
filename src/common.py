@@ -20,6 +20,8 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.utils.validation import check_is_fitted
 
+from robot_visualization import calculate_pose_errors_batch
+
 
 # Select columns by name because the CSV stores yaw before pitch and roll.
 POSE_COLUMNS = ["x", "y", "z", "yaw", "pitch", "roll"]
@@ -328,7 +330,11 @@ def make_split(
     )
 
 
-def evaluate_predictions(y_true: pd.DataFrame, y_pred: np.ndarray) -> tuple[pd.DataFrame, dict[str, float]]:
+def evaluate_predictions(
+    y_true: pd.DataFrame,
+    y_pred: np.ndarray,
+    x_features: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, dict[str, float]]:
     """Return per-joint metrics and equally weighted aggregate metrics."""
     predicted = np.asarray(y_pred, dtype=float)
     actual = y_true.to_numpy(dtype=float)
@@ -338,21 +344,84 @@ def evaluate_predictions(y_true: pd.DataFrame, y_pred: np.ndarray) -> tuple[pd.D
     mae = mean_absolute_error(actual, predicted, multioutput="raw_values")
     rmse = np.sqrt(mean_squared_error(actual, predicted, multioutput="raw_values"))
     r2 = r2_score(actual, predicted, multioutput="raw_values")
+    if x_features is None:
+        current = np.zeros_like(actual)
+    else:
+        current = x_features[CURRENT_JOINT_COLUMNS].to_numpy(dtype=float)
+        if current.shape != actual.shape:
+            raise ValueError(
+                f"Current-joint shape {current.shape} does not match targets {actual.shape}."
+            )
+
+    actual_delta = actual - current
+    predicted_delta = predicted - current
+    delta_mae = mean_absolute_error(actual_delta, predicted_delta, multioutput="raw_values")
+    delta_rmse = np.sqrt(
+        mean_squared_error(actual_delta, predicted_delta, multioutput="raw_values")
+    )
+    delta_r2 = r2_score(actual_delta, predicted_delta, multioutput="raw_values")
+    baseline_mae = mean_absolute_error(actual, current, multioutput="raw_values")
+    baseline_rmse = np.sqrt(mean_squared_error(actual, current, multioutput="raw_values"))
     per_joint = pd.DataFrame(
         {
             "joint": TARGET_COLUMNS,
             "mae_rad": mae,
             "rmse_rad": rmse,
             "r2": r2,
+            "delta_mae_rad": delta_mae,
+            "delta_rmse_rad": delta_rmse,
+            "delta_r2": delta_r2,
+            "baseline_mae_rad": baseline_mae,
+            "baseline_rmse_rad": baseline_rmse,
         }
     )
+    baseline_global_rmse = float(np.sqrt(np.mean((actual - current) ** 2)))
+    global_rmse = float(np.sqrt(np.mean((actual - predicted) ** 2)))
     aggregate = {
         "mean_joint_mae_rad": float(np.mean(mae)),
         "mean_joint_rmse_rad": float(np.mean(rmse)),
         "mean_joint_r2": float(np.mean(r2)),
         "global_mae_rad": float(np.mean(np.abs(actual - predicted))),
-        "global_rmse_rad": float(np.sqrt(np.mean((actual - predicted) ** 2))),
+        "global_rmse_rad": global_rmse,
+        "mean_joint_delta_mae_rad": float(np.mean(delta_mae)),
+        "mean_joint_delta_rmse_rad": float(np.mean(delta_rmse)),
+        "mean_joint_delta_r2": float(np.mean(delta_r2)),
+        "baseline_mean_joint_mae_rad": float(np.mean(baseline_mae)),
+        "baseline_mean_joint_rmse_rad": float(np.mean(baseline_rmse)),
+        "baseline_global_rmse_rad": baseline_global_rmse,
+        "rmse_improvement_over_baseline_percent": (
+            100.0 * (baseline_global_rmse - global_rmse) / baseline_global_rmse
+            if baseline_global_rmse
+            else 0.0
+        ),
     }
+
+    if x_features is not None:
+        target_poses = x_features[POSE_COLUMNS].to_numpy(dtype=float)
+        position_errors, orientation_errors = calculate_pose_errors_batch(
+            predicted,
+            target_poses,
+        )
+        baseline_position_errors, baseline_orientation_errors = calculate_pose_errors_batch(
+            current,
+            target_poses,
+        )
+        aggregate.update(
+            {
+                "mean_cartesian_position_error_mm": float(np.mean(position_errors)),
+                "median_cartesian_position_error_mm": float(np.median(position_errors)),
+                "p95_cartesian_position_error_mm": float(np.percentile(position_errors, 95)),
+                "mean_orientation_error_deg": float(np.mean(orientation_errors)),
+                "median_orientation_error_deg": float(np.median(orientation_errors)),
+                "p95_orientation_error_deg": float(np.percentile(orientation_errors, 95)),
+                "baseline_mean_cartesian_position_error_mm": float(
+                    np.mean(baseline_position_errors)
+                ),
+                "baseline_mean_orientation_error_deg": float(
+                    np.mean(baseline_orientation_errors)
+                ),
+            }
+        )
     return per_joint, aggregate
 
 
@@ -410,7 +479,7 @@ def train_and_save(
     predictions = model.predict(split.x_test)
     prediction_seconds = time.perf_counter() - prediction_start
 
-    per_joint, aggregate = evaluate_predictions(split.y_test, predictions)
+    per_joint, aggregate = evaluate_predictions(split.y_test, predictions, split.x_test)
     metrics: dict[str, Any] = {
         "model": model_name,
         "feature_columns": FEATURE_COLUMNS,
@@ -461,6 +530,21 @@ def write_comparison(metrics: list[dict[str, Any]], output_root: Path) -> pd.Dat
             "mean_joint_rmse_rad": item["mean_joint_rmse_rad"],
             "mean_joint_r2": item["mean_joint_r2"],
             "global_rmse_rad": item["global_rmse_rad"],
+            "mean_joint_delta_r2": item.get("mean_joint_delta_r2"),
+            "baseline_global_rmse_rad": item.get("baseline_global_rmse_rad"),
+            "rmse_improvement_over_baseline_percent": item.get(
+                "rmse_improvement_over_baseline_percent"
+            ),
+            "mean_cartesian_position_error_mm": item.get(
+                "mean_cartesian_position_error_mm"
+            ),
+            "mean_orientation_error_deg": item.get("mean_orientation_error_deg"),
+            "baseline_mean_cartesian_position_error_mm": item.get(
+                "baseline_mean_cartesian_position_error_mm"
+            ),
+            "baseline_mean_orientation_error_deg": item.get(
+                "baseline_mean_orientation_error_deg"
+            ),
             "fit_seconds": item["fit_seconds"],
             "prediction_microseconds_per_sample": item["prediction_microseconds_per_sample"],
         }
