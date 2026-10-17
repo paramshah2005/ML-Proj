@@ -332,6 +332,18 @@ with predict_tab:
 
     sample = source_predictions.iloc[int(sample_index)]
 
+    def populate_random_input() -> None:
+        random_index = int(np.random.default_rng().integers(len(source_predictions)))
+        random_sample = source_predictions.iloc[random_index]
+        for feature in FEATURES[:6]:
+            st.session_state[
+                f"pose_{feature}_{sample_index}_{selected_key}"
+            ] = float(random_sample[feature])
+        for feature in FEATURES[6:]:
+            st.session_state[
+                f"joint_{feature}_{sample_index}_{selected_key}"
+            ] = float(random_sample[feature])
+
     with st.form("prediction_form"):
         st.markdown("#### Desired end-effector pose")
         pose_columns = st.columns(3)
@@ -356,7 +368,18 @@ with predict_tab:
                     key=f"joint_{feature}_{sample_index}_{selected_key}",
                 )
 
-        submitted = st.form_submit_button("RUN PREDICTION", use_container_width=True)
+        run_col, random_col = st.columns(2)
+        with run_col:
+            submitted = st.form_submit_button(
+                "RUN PREDICTION",
+                use_container_width=True,
+            )
+        with random_col:
+            st.form_submit_button(
+                "RANDOM INPUT",
+                use_container_width=True,
+                on_click=populate_random_input,
+            )
 
     if submitted:
         input_frame = pd.DataFrame([[values[name] for name in FEATURES]], columns=FEATURES)
