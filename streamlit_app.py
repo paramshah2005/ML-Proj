@@ -457,51 +457,76 @@ with compare_tab:
         .properties(height=250, title="Held-out prediction error")
     )
 
+    cost_comparison = comparison.copy()
+    cost_comparison["fit_label"] = cost_comparison.apply(
+        lambda row: f'{row["display_model"]} | {row["fit_seconds"]:.3f} s',
+        axis=1,
+    )
+    cost_comparison["inference_label"] = cost_comparison.apply(
+        lambda row: (
+            f'{row["display_model"]} | '
+            f'{row["prediction_microseconds_per_sample"]:.3f} µs/sample'
+        ),
+        axis=1,
+    )
+
     fit_domain = [
-        float(comparison["fit_seconds"].min()) / 2,
-        float(comparison["fit_seconds"].max()) * 4,
+        float(cost_comparison["fit_seconds"].min()) / 2,
+        float(cost_comparison["fit_seconds"].max()) * 20,
     ]
-    fit_base = alt.Chart(comparison).encode(
+    fit_base = alt.Chart(cost_comparison).encode(
         y=alt.Y(
             "display_model:N",
             title=None,
             sort="x",
-            axis=alt.Axis(labelLimit=220),
+            axis=None,
         ),
         x=alt.X(
             "fit_seconds:Q",
             title="Training time (seconds, logarithmic scale)",
             scale=alt.Scale(type="log", domain=fit_domain),
         ),
+        tooltip=[
+            alt.Tooltip("display_model:N", title="Model"),
+            alt.Tooltip("fit_seconds:Q", title="Training seconds", format=".4f"),
+        ],
     )
     fit_cost_chart = (
         fit_base.mark_circle(size=180, color=ACCENT)
         + fit_base.mark_text(align="left", dx=12, color="#F1F4E9").encode(
-            text=alt.Text("fit_seconds:Q", format=".3f")
+            text=alt.Text("fit_label:N")
         )
     ).properties(height=170, title="Training cost")
 
     inference_domain = [
-        float(comparison["prediction_microseconds_per_sample"].min()) / 2,
-        float(comparison["prediction_microseconds_per_sample"].max()) * 4,
+        float(cost_comparison["prediction_microseconds_per_sample"].min()) / 2,
+        float(cost_comparison["prediction_microseconds_per_sample"].max()) * 20,
     ]
-    inference_base = alt.Chart(comparison).encode(
+    inference_base = alt.Chart(cost_comparison).encode(
         y=alt.Y(
             "display_model:N",
             title=None,
             sort="x",
-            axis=alt.Axis(labelLimit=220),
+            axis=None,
         ),
         x=alt.X(
             "prediction_microseconds_per_sample:Q",
             title="Inference time (µs/sample, logarithmic scale)",
             scale=alt.Scale(type="log", domain=inference_domain),
         ),
+        tooltip=[
+            alt.Tooltip("display_model:N", title="Model"),
+            alt.Tooltip(
+                "prediction_microseconds_per_sample:Q",
+                title="µs/sample",
+                format=".4f",
+            ),
+        ],
     )
     inference_cost_chart = (
         inference_base.mark_circle(size=180, color=ACCENT)
         + inference_base.mark_text(align="left", dx=12, color="#F1F4E9").encode(
-            text=alt.Text("prediction_microseconds_per_sample:Q", format=".3f")
+            text=alt.Text("inference_label:N")
         )
     ).properties(height=170, title="Inference cost")
 
