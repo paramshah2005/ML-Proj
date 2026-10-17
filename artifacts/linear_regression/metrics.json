@@ -1,0 +1,47 @@
+{
+  "model": "linear_regression",
+  "feature_columns": [
+    "x",
+    "y",
+    "z",
+    "yaw",
+    "pitch",
+    "roll",
+    "q1_in",
+    "q2_in",
+    "q3_in",
+    "q4_in",
+    "q5_in",
+    "q6_in"
+  ],
+  "target_columns": [
+    "q1_out",
+    "q2_out",
+    "q3_out",
+    "q4_out",
+    "q5_out",
+    "q6_out"
+  ],
+  "ignored_columns": [],
+  "source_rows": 300000,
+  "retained_samples": 300000,
+  "unique_poses": 15000,
+  "ambiguous_feature_count": 0,
+  "available_fit_samples": 255000,
+  "fit_samples": 255000,
+  "test_samples": 45000,
+  "random_state": 42,
+  "fit_seconds": 0.4157639000004565,
+  "prediction_seconds": 0.020988399999623653,
+  "prediction_microseconds_per_sample": 0.4664088888805256,
+  "parameters": {
+    "fit_intercept": true,
+    "input_scaling": "standard",
+    "target_scaling": "standard"
+  },
+  "mean_joint_mae_rad": 0.04991404710172761,
+  "mean_joint_rmse_rad": 0.05764274000560879,
+  "mean_joint_r2": 0.9973953406733557,
+  "global_mae_rad": 0.049914047101727595,
+  "global_rmse_rad": 0.057643048434302055
+}

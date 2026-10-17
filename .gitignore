@@ -1,0 +1,57 @@
+# Python environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python caches and build output
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Editors and operating-system files
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Raw data is not required by the deployed dashboard
+/datasetIRB2400.csv
+/data/
+/datasets/
+
+# Temporary files and training logs
+/tmp/
+*.tmp
+*.temp
+*.log
+*.pid
+
+# Experiment-tracking output
+/mlruns/
+/wandb/
+
+# Keep trained dashboard assets in GitHub.
+# Do not ignore artifacts/**/*.joblib, artifacts/**/*.json, or
+# artifacts/**/*.csv because Streamlit loads those files at runtime.
+

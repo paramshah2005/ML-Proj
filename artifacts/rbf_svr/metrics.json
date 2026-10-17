@@ -1,0 +1,52 @@
+{
+  "model": "rbf_svr",
+  "feature_columns": [
+    "x",
+    "y",
+    "z",
+    "yaw",
+    "pitch",
+    "roll",
+    "q1_in",
+    "q2_in",
+    "q3_in",
+    "q4_in",
+    "q5_in",
+    "q6_in"
+  ],
+  "target_columns": [
+    "q1_out",
+    "q2_out",
+    "q3_out",
+    "q4_out",
+    "q5_out",
+    "q6_out"
+  ],
+  "ignored_columns": [],
+  "source_rows": 300000,
+  "retained_samples": 300000,
+  "unique_poses": 15000,
+  "ambiguous_feature_count": 0,
+  "available_fit_samples": 255000,
+  "fit_samples": 15000,
+  "test_samples": 45000,
+  "random_state": 42,
+  "fit_seconds": 1091.0038676999993,
+  "prediction_seconds": 101.83373949999987,
+  "prediction_microseconds_per_sample": 2262.9719888888862,
+  "parameters": {
+    "kernel": "rbf",
+    "C": 30.0,
+    "epsilon": 0.02,
+    "gamma": "scale",
+    "multi_output_strategy": "one_svr_per_joint",
+    "input_scaling": "standard",
+    "target_scaling": "standard",
+    "max_fit_samples": 15000
+  },
+  "mean_joint_mae_rad": 0.050034991442540595,
+  "mean_joint_rmse_rad": 0.06738116601438236,
+  "mean_joint_r2": 0.998059589793758,
+  "global_mae_rad": 0.05003499144254079,
+  "global_rmse_rad": 0.07333680694244776
+}
