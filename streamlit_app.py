@@ -39,12 +39,16 @@ FEATURES = [
     "q6_in",
 ]
 TARGETS = [f"q{i}_out" for i in range(1, 7)]
-MODEL_LABELS = {
+MODEL_CATALOG = {
     "Linear regression": "linear_regression",
     "RBF-SVR": "rbf_svr",
     "Decision tree": "decision_tree",
+    "Nystroem + SGD": "nystroem_sgd",
 }
-MODEL_DISPLAY = {value: key for key, value in MODEL_LABELS.items()}
+MODEL_LABELS = MODEL_CATALOG.copy()
+MODEL_DISPLAY = {value: key for key, value in MODEL_CATALOG.items()}
+REQUIRED_MODEL_KEYS = ("linear_regression", "rbf_svr", "decision_tree")
+MODEL_ARTIFACT_FILES = ("model.joblib", "metrics.json", "per_joint_metrics.csv", "test_predictions.csv")
 ACCENT = "#C6FF4A"
 MUTED = "#788071"
 GRID = "#30352C"
@@ -249,12 +253,16 @@ def validate_artifacts() -> list[str]:
     missing: list[str] = []
     if not (ARTIFACTS / "model_comparison.csv").exists():
         missing.append("artifacts/model_comparison.csv")
-    for key in MODEL_LABELS.values():
-        for name in ("model.joblib", "metrics.json", "per_joint_metrics.csv", "test_predictions.csv"):
+    for key in REQUIRED_MODEL_KEYS:
+        for name in MODEL_ARTIFACT_FILES:
             path = ARTIFACTS / key / name
             if not path.exists():
                 missing.append(str(path.relative_to(ROOT)).replace("\\", "/"))
     return missing
+
+
+def model_artifacts_complete(model_key: str) -> bool:
+    return all((ARTIFACTS / model_key / name).exists() for name in MODEL_ARTIFACT_FILES)
 
 
 def metric_pair(actual: np.ndarray, predicted: np.ndarray) -> tuple[float, float]:
@@ -271,7 +279,7 @@ st.markdown(
         <h1>Joint target<br>control console</h1>
         <p class="hero-copy">
             Predict six desired joint angles from Cartesian pose, end-effector orientation,
-            and the robot's current six-joint state. Compare the three trained regressors
+            and the robot's current six-joint state. Compare the available trained regressors
             against the same pose-safe test split.
         </p>
         <div class="status-line"><span class="status-dot"></span>TRAINED ARTIFACTS READY · 12 INPUTS · 6 OUTPUTS</div>
@@ -285,7 +293,11 @@ if missing_files:
     st.error("The dashboard cannot start because required trained artifacts are missing: " + ", ".join(missing_files))
     st.stop()
 
+MODEL_LABELS = {
+    label: key for label, key in MODEL_CATALOG.items() if model_artifacts_complete(key)
+}
 comparison = load_comparison()
+comparison = comparison[comparison["model"].isin(MODEL_LABELS.values())].reset_index(drop=True)
 comparison["display_model"] = comparison["model"].map(display_name)
 
 predict_tab, compare_tab, analysis_tab, method_tab = st.tabs(
@@ -557,7 +569,10 @@ with compare_tab:
     )
     st.dataframe(comparison_table.style.format(precision=6), use_container_width=True, hide_index=True)
     st.markdown(
-        '<div class="readout"><strong>SELECTION:</strong> Linear regression is the practical default here: it has the lowest global RMSE and the lowest measured fit and inference cost. RBF-SVR is far more expensive without improving global error.</div>',
+        '<div class="readout"><strong>RESULT:</strong> '
+        f'{display_name(winner["model"])} currently has the lowest global RMSE. '
+        f'{display_name(fastest_inference["model"])} has the fastest measured inference. '
+        "Use both error and timing when selecting the deployment model.</div>",
         unsafe_allow_html=True,
     )
 
@@ -699,15 +714,25 @@ with method_tab:
     st.markdown("#### Evaluated training runs")
     st.dataframe(pd.DataFrame(method_rows), use_container_width=True, hide_index=True)
 
+    st.markdown("#### Evaluation controls")
     st.markdown(
-        """
-        #### Evaluation controls
-
-        - Rows are split by pose group, so repeated measurements of the same pose do not cross train, validation, and test partitions.
-        - Linear regression and the decision tree use all 255,000 available train-plus-validation rows.
-        - Exact RBF-SVR uses a deterministic 15,000-row subset because its kernel training cost grows much faster with sample count.
-        - Every model is evaluated on the same 45,000 held-out rows.
-        - A 3D robot-arm rendering is intentionally omitted because the project does not include verified IRB2400 kinematic-link parameters.
-        """
+        "- Rows are split by pose group, so repeated measurements of the same pose do not cross "
+        "train, validation, and test partitions.\n"
+        "- Linear regression and the decision tree use all 255,000 available train-plus-validation rows.\n"
+        "- Exact RBF-SVR uses a deterministic 15,000-row subset because its kernel training cost "
+        "grows much faster with sample count."
+    )
+    if "nystroem_sgd" in MODEL_LABELS.values():
+        nystroem_metrics = load_metrics("nystroem_sgd")
+        nystroem_parameters = nystroem_metrics.get("parameters", {})
+        st.markdown(
+            f'- Nystroem + SGD uses {nystroem_metrics.get("fit_samples", 0):,} fitting rows '
+            f'with a {nystroem_parameters.get("n_components", "saved")}-component approximate '
+            "RBF feature map."
+        )
+    st.markdown(
+        "- Every model is evaluated on the same 45,000 held-out rows.\n"
+        "- A 3D robot-arm rendering is intentionally omitted because the project does not include "
+        "verified IRB2400 kinematic-link parameters."
     )
 

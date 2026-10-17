@@ -11,6 +11,17 @@ from train_decision_tree import MAX_DEPTH, MIN_SAMPLES_LEAF
 from train_decision_tree import build_model as build_tree
 from train_linear_regression import MODEL_NAME as LINEAR_NAME
 from train_linear_regression import build_model as build_linear
+from train_nystroem_sgd import (
+    ALPHA as NYSTROEM_ALPHA,
+    EPSILON as NYSTROEM_EPSILON,
+    GAMMA as NYSTROEM_GAMMA,
+    LOSS as NYSTROEM_LOSS,
+    MAX_ITER as NYSTROEM_MAX_ITER,
+    N_COMPONENTS,
+    TOLERANCE as NYSTROEM_TOLERANCE,
+)
+from train_nystroem_sgd import MODEL_NAME as NYSTROEM_NAME
+from train_nystroem_sgd import build_model as build_nystroem
 from train_svr import C, EPSILON, GAMMA, MAX_FIT_SAMPLES
 from train_svr import MODEL_NAME as SVR_NAME
 from train_svr import build_model as build_svr
@@ -22,7 +33,7 @@ def main() -> None:
     configure_logging(output_root, "training.log")
     split = make_split(project_root / "datasetIRB2400.csv")
     LOGGER.info(
-        "Ready to train three models from %s source rows and %s unique poses",
+        "Ready to train four models from %s source rows and %s unique poses",
         f"{split.info.source_rows:,}",
         f"{split.info.unique_poses:,}",
     )
@@ -59,6 +70,29 @@ def main() -> None:
                 "max_fit_samples": MAX_FIT_SAMPLES,
             },
             MAX_FIT_SAMPLES,
+        ),
+        (
+            NYSTROEM_NAME,
+            build_nystroem,
+            {
+                "kernel_approximation": "Nystroem",
+                "kernel": "rbf",
+                "gamma": NYSTROEM_GAMMA,
+                "n_components": N_COMPONENTS,
+                "regressor": "SGDRegressor",
+                "loss": NYSTROEM_LOSS,
+                "epsilon": NYSTROEM_EPSILON,
+                "alpha": NYSTROEM_ALPHA,
+                "penalty": "l2",
+                "max_iter": NYSTROEM_MAX_ITER,
+                "tolerance": NYSTROEM_TOLERANCE,
+                "average": True,
+                "multi_output_strategy": "one_sgd_regressor_per_joint",
+                "input_scaling": "standard",
+                "target_scaling": "standard",
+                "max_fit_samples": None,
+            },
+            None,
         ),
     ]
 

@@ -14,9 +14,11 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.base import RegressorMixin
+from sklearn.base import BaseEstimator, RegressorMixin, clone
+from sklearn.kernel_approximation import Nystroem
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GroupShuffleSplit
+from sklearn.utils.validation import check_is_fitted
 
 
 # Select columns by name because the CSV stores yaw before pitch and roll.
@@ -91,6 +93,98 @@ class TrainingHeartbeat:
         self.stop_event.set()
         if self.thread is not None:
             self.thread.join(timeout=1.0)
+
+
+class ProgressNystroem(Nystroem):
+    """Transform rows in bounded batches and report exact row progress."""
+
+    transform_batch_size = 25_000
+
+    def transform(self, x: np.ndarray) -> np.ndarray:
+        total_rows = len(x)
+        if total_rows == 0:
+            return super().transform(x)
+
+        LOGGER.info("Nystroem rows transformed: 0/%s", f"{total_rows:,}")
+        transformed_batches: list[np.ndarray] = []
+        for start in range(0, total_rows, self.transform_batch_size):
+            stop = min(start + self.transform_batch_size, total_rows)
+            transformed_batches.append(super().transform(x[start:stop]))
+            LOGGER.info(
+                "Nystroem rows transformed: %s/%s (%.1f%%)",
+                f"{stop:,}",
+                f"{total_rows:,}",
+                stop / total_rows * 100,
+            )
+        return np.vstack(transformed_batches)
+
+
+class ProgressMultiOutputRegressor(RegressorMixin, BaseEstimator):
+    """Fit independent target estimators with joint and work-unit progress."""
+
+    def __init__(self, estimator: RegressorMixin, model_label: str) -> None:
+        self.estimator = estimator
+        self.model_label = model_label
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> "ProgressMultiOutputRegressor":
+        target_array = np.asarray(y)
+        if target_array.ndim != 2:
+            raise ValueError("Multi-output regression expects a 2D target matrix.")
+
+        self.estimators_: list[RegressorMixin] = []
+        self.n_outputs_ = target_array.shape[1]
+        samples_per_output = len(target_array)
+        total_work_units = samples_per_output * self.n_outputs_
+        overall_start = time.perf_counter()
+        LOGGER.info(
+            "%s sample-target work units completed: 0/%s",
+            self.model_label,
+            f"{total_work_units:,}",
+        )
+
+        for index in range(self.n_outputs_):
+            target_name = TARGET_COLUMNS[index] if index < len(TARGET_COLUMNS) else f"target_{index + 1}"
+            target_start = time.perf_counter()
+            LOGGER.info(
+                "Starting %s target %d/%d (%s) | work units=%s/%s (%.1f%%)",
+                self.model_label,
+                index + 1,
+                self.n_outputs_,
+                target_name,
+                f"{index * samples_per_output:,}",
+                f"{total_work_units:,}",
+                index / self.n_outputs_ * 100,
+            )
+            fitted_estimator = clone(self.estimator)
+            fitted_estimator.fit(x, target_array[:, index])
+            self.estimators_.append(fitted_estimator)
+
+            elapsed = time.perf_counter() - overall_start
+            completed = index + 1
+            remaining = self.n_outputs_ - completed
+            estimated_remaining = elapsed / completed * remaining
+            LOGGER.info(
+                "Completed %s target %d/%d (%s) | work units=%s/%s (%.1f%%) | "
+                "target_time=%s | elapsed=%s | estimated_remaining=%s",
+                self.model_label,
+                completed,
+                self.n_outputs_,
+                target_name,
+                f"{completed * samples_per_output:,}",
+                f"{total_work_units:,}",
+                completed / self.n_outputs_ * 100,
+                format_duration(time.perf_counter() - target_start),
+                format_duration(elapsed),
+                format_duration(estimated_remaining),
+            )
+
+        if hasattr(self.estimators_[0], "n_features_in_"):
+            self.n_features_in_ = self.estimators_[0].n_features_in_
+        return self
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        check_is_fitted(self, "estimators_")
+        return np.column_stack([estimator.predict(x) for estimator in self.estimators_])
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ This Streamlit dashboard predicts the six desired ABB IRB2400 joint angles from:
 - desired orientation: `yaw`, `pitch`, `roll`
 - current joint state: `q1_in` through `q6_in`
 
-It loads the existing linear regression, RBF-SVR, and decision-tree artifacts. It also compares their saved test metrics and visualizes held-out prediction errors.
+It loads the existing linear regression, RBF-SVR, decision-tree, and optional Nystroem + SGD artifacts. It also compares their saved test metrics and visualizes held-out prediction errors.
 
 ## Run locally
 
@@ -29,12 +29,15 @@ streamlit_app.py
 requirements.txt
 .streamlit/config.toml
 src/train_svr.py
+src/train_nystroem_sgd.py
 src/common.py
 artifacts/model_comparison.csv
 artifacts/linear_regression/*
 artifacts/rbf_svr/*
 artifacts/decision_tree/*
 ```
+
+The dashboard automatically enables Nystroem + SGD when `artifacts/nystroem_sgd/` contains its model, metrics, per-joint metrics, and test predictions. See `COLAB_NYSTROEM.md` for the Google Colab workflow.
 
 Training logs and the 300,000-row source dataset are excluded by `.gitignore`; the deployed dashboard uses the saved models and held-out prediction files instead.
 
