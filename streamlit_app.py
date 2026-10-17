@@ -22,6 +22,10 @@ if str(SRC) not in sys.path:
 # The saved SVR pipeline contains this custom estimator class. Importing the
 # module before joblib.load makes the class available during deserialization.
 import train_svr  # noqa: F401, E402
+from robot_visualization import (  # noqa: E402
+    build_motion_figure,
+    calculate_pose_error,
+)
 
 
 FEATURES = [
@@ -387,6 +391,32 @@ with predict_tab:
         latency_col.metric("Measured latency", f"{latency_ms:.3f} ms")
         model_col.metric("Active model", selected_label)
 
+        target_pose = np.array([values[name] for name in FEATURES[:6]], dtype=float)
+        pose_error = calculate_pose_error(predicted, target_pose)
+        motion_figure = build_motion_figure(current, predicted, target_pose)
+
+        st.markdown("#### 3D motion preview")
+        position_col, orientation_col = st.columns(2)
+        position_col.metric(
+            "Predicted position difference",
+            f'{pose_error["position_error_mm"]:.2f} mm',
+        )
+        orientation_col.metric(
+            "Predicted orientation difference",
+            f'{pose_error["orientation_error_deg"]:.2f}°',
+        )
+        st.plotly_chart(
+            motion_figure,
+            width="stretch",
+            config={
+                "displaylogo": False,
+                "responsive": True,
+                "scrollZoom": True,
+            },
+            key=f"robot_motion_{selected_key}_{int(sample_index)}",
+        )
+        st.caption("Dataset-calibrated kinematic visualization; motion is not collision checked.")
+
         chart_frame = result[["joint", "current_rad", "predicted_rad"]].melt(
             "joint", var_name="signal", value_name="angle_rad"
         )
@@ -732,7 +762,8 @@ with method_tab:
         )
     st.markdown(
         "- Every model is evaluated on the same 45,000 held-out rows.\n"
-        "- A 3D robot-arm rendering is intentionally omitted because the project does not include "
-        "verified IRB2400 kinematic-link parameters."
+        "- The 3D motion preview uses a dataset-calibrated six-axis kinematic chain to map joint "
+        "states back to end-effector position and orientation. It is a kinematic visualization, "
+        "not a collision, dynamics, controller-safety, or physical-calibration system."
     )
 

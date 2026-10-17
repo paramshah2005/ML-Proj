@@ -8,6 +8,8 @@ This Streamlit dashboard predicts the six desired ABB IRB2400 joint angles from:
 
 It loads the existing linear regression, RBF-SVR, decision-tree, and optional Nystroem + SGD artifacts. It also compares their saved test metrics and visualizes held-out prediction errors.
 
+After a prediction, an interactive 3D technical skeleton animates from the current joint state to the predicted target state. The view includes play and scrub controls, a desired tool-pose marker, and dataset-calibrated Cartesian and orientation error readouts. It is a kinematic visualization and does not perform collision or dynamics simulation.
+
 ## Run locally
 
 Open PowerShell in `D:\ML Proj`, then run:
