@@ -65,6 +65,20 @@ def forward_kinematics(joints: Iterable[float]) -> np.ndarray:
     return np.stack(transforms)
 
 
+def tool_pose_from_joints(joints: Iterable[float]) -> np.ndarray:
+    """Return x, y, z, yaw, pitch, roll using the dashboard's Rz-Ry-Rx convention."""
+    tool = forward_kinematics(joints)[-1]
+    rotation = tool[:3, :3]
+    pitch = float(np.arcsin(np.clip(-rotation[2, 0], -1.0, 1.0)))
+    if abs(np.cos(pitch)) > 1e-8:
+        yaw = float(np.arctan2(rotation[1, 0], rotation[0, 0]))
+        roll = float(np.arctan2(rotation[2, 1], rotation[2, 2]))
+    else:
+        yaw = float(np.arctan2(-rotation[0, 1], rotation[1, 1]))
+        roll = 0.0
+    return np.array([*tool[:3, 3], yaw, pitch, roll], dtype=float)
+
+
 def _target_transform(target_pose: Iterable[float]) -> np.ndarray:
     pose = _as_finite_vector(target_pose, 6, "target_pose")
     x, y, z, yaw, pitch, roll = pose

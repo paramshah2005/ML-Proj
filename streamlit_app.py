@@ -26,6 +26,8 @@ import train_svr  # noqa: F401, E402
 from robot_visualization import (  # noqa: E402
     build_motion_figure,
     calculate_pose_error,
+    forward_kinematics,
+    tool_pose_from_joints,
 )
 
 
@@ -57,6 +59,17 @@ MODEL_ARTIFACT_FILES = ("model.joblib", "metrics.json", "per_joint_metrics.csv",
 ACCENT = "#C6FF4A"
 MUTED = "#788071"
 GRID = "#30352C"
+JOINT_LIMITS_RAD = np.array(
+    [
+        [-np.pi, np.pi],
+        [-1.9199, 1.7453],
+        [-1.1345, 1.0472],
+        [-3.49, 3.49],
+        [-2.0944, 2.0944],
+        [-6.9813, 6.9813],
+    ]
+)
+RANDOM_CANDIDATE_COUNT = 96
 
 
 st.set_page_config(
@@ -334,16 +347,55 @@ with predict_tab:
     sample = source_predictions.iloc[int(sample_index)]
 
     def populate_random_input() -> None:
-        random_index = int(np.random.default_rng().integers(len(source_predictions)))
-        random_sample = source_predictions.iloc[random_index]
+        rng = np.random.default_rng()
+        lower_limits = JOINT_LIMITS_RAD[:, 0]
+        upper_limits = JOINT_LIMITS_RAD[:, 1]
+
+        target_poses: list[np.ndarray] = []
+        while len(target_poses) < RANDOM_CANDIDATE_COUNT:
+            target_joints = rng.uniform(lower_limits, upper_limits)
+            target_pose = tool_pose_from_joints(target_joints)
+            if target_pose[2] >= 0.0:
+                target_poses.append(target_pose)
+
+        pose_candidates = np.vstack(target_poses)
+        current_candidates = rng.uniform(
+            lower_limits,
+            upper_limits,
+            size=(RANDOM_CANDIDATE_COUNT, 6),
+        )
+        candidate_inputs = pd.DataFrame(
+            np.column_stack([pose_candidates, current_candidates]),
+            columns=FEATURES,
+        )
+        candidate_predictions = np.asarray(
+            load_model(selected_key).predict(candidate_inputs),
+            dtype=float,
+        )
+
+        motion_scores = np.empty(RANDOM_CANDIDATE_COUNT, dtype=float)
+        for index, (current_joints, predicted_joints) in enumerate(
+            zip(current_candidates, candidate_predictions, strict=True)
+        ):
+            current_nodes = forward_kinematics(current_joints)[:, :3, 3]
+            predicted_nodes = forward_kinematics(predicted_joints)[:, :3, 3]
+            motion_scores[index] = np.mean(
+                np.linalg.norm(predicted_nodes - current_nodes, axis=1)
+            )
+
+        top_count = max(1, RANDOM_CANDIDATE_COUNT // 10)
+        top_indices = np.argpartition(motion_scores, -top_count)[-top_count:]
+        selected_index = int(rng.choice(top_indices))
+        random_input = candidate_inputs.iloc[selected_index]
+
         for feature in FEATURES[:6]:
             st.session_state[
                 f"pose_{feature}_{sample_index}_{selected_key}"
-            ] = float(random_sample[feature])
+            ] = float(random_input[feature])
         for feature in FEATURES[6:]:
             st.session_state[
                 f"joint_{feature}_{sample_index}_{selected_key}"
-            ] = float(random_sample[feature])
+            ] = float(random_input[feature])
 
     with st.form("prediction_form"):
         st.markdown("#### Desired end-effector pose")
@@ -381,6 +433,11 @@ with predict_tab:
                 use_container_width=True,
                 on_click=populate_random_input,
             )
+        st.caption(
+            "Random input explores the full joint-limit workspace, keeps the desired Z at or "
+            "above zero, and favors visible motion. Wide-range combinations may be outside the "
+            "training distribution."
+        )
 
     if submitted:
         input_frame = pd.DataFrame([[values[name] for name in FEATURES]], columns=FEATURES)

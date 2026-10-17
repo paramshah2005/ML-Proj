@@ -17,6 +17,7 @@ from robot_visualization import (  # noqa: E402
     build_motion_figure,
     calculate_pose_error,
     forward_kinematics,
+    tool_pose_from_joints,
 )
 
 
@@ -46,12 +47,7 @@ class RobotVisualizationTests(unittest.TestCase):
 
     def test_self_generated_target_has_zero_error(self) -> None:
         joints = np.array([0.35, -0.42, 0.18, 0.71, -0.54, 1.2])
-        tool = forward_kinematics(joints)[-1]
-        rotation = tool[:3, :3]
-        pitch = np.arcsin(np.clip(-rotation[2, 0], -1.0, 1.0))
-        yaw = np.arctan2(rotation[1, 0], rotation[0, 0])
-        roll = np.arctan2(rotation[2, 1], rotation[2, 2])
-        target = [*tool[:3, 3], yaw, pitch, roll]
+        target = tool_pose_from_joints(joints)
         error = calculate_pose_error(joints, target)
         self.assertLess(error["position_error_mm"], 1e-9)
         self.assertLess(error["orientation_error_deg"], 1e-6)
