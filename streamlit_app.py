@@ -56,9 +56,9 @@ MODEL_LABELS = MODEL_CATALOG.copy()
 MODEL_DISPLAY = {value: key for key, value in MODEL_CATALOG.items()}
 REQUIRED_MODEL_KEYS = ("linear_regression", "rbf_svr", "decision_tree")
 MODEL_ARTIFACT_FILES = ("model.joblib", "metrics.json", "per_joint_metrics.csv", "test_predictions.csv")
-ACCENT = "#E4002B"
-MUTED = "#8A8A91"
-GRID = "#DADADD"
+ACCENT = "#C66B3D"
+MUTED = "#8A745D"
+GRID = "#CDBA9C"
 JOINT_LIMITS_RAD = np.array(
     [
         [-np.pi, np.pi],
@@ -83,18 +83,20 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+    @import url("https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700&display=swap");
+
     :root {
-        --surface: #F7F7F8;
-        --panel: #FFFFFF;
-        --panel-2: #F0F0F2;
-        --line: #DADADD;
-        --line-strong: #AFAFB5;
-        --text: #151518;
-        --muted: #68686F;
-        --signal: #E4002B;
-        --signal-hover: #B60022;
-        --signal-ink: #FFFFFF;
-        --focus: #002FA7;
+        --surface: #E8DCC7;
+        --panel: #DFCCAD;
+        --panel-2: #D4B895;
+        --line: #C5A886;
+        --line-strong: #A47D5F;
+        --text: #3F4630;
+        --muted: #75684F;
+        --signal: #C66B3D;
+        --signal-hover: #A95532;
+        --signal-ink: #2E251D;
+        --focus: #C08E3A;
     }
 
     html, body {
@@ -102,13 +104,24 @@ st.markdown(
     }
 
     html, body, [class*="st-"], [class*="css"] {
-        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-family: "Epilogue", "Avenir Next", "Segoe UI", sans-serif;
         font-variant-numeric: tabular-nums;
     }
 
     [data-testid="stAppViewContainer"] {
         background: var(--surface);
         color: var(--text);
+        position: relative;
+    }
+
+    [data-testid="stAppViewContainer"]::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.025;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+        z-index: 0;
     }
 
     [data-testid="stHeader"] {
@@ -160,19 +173,20 @@ st.markdown(
 
     .stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button {
         border: 1px solid var(--signal);
-        border-radius: 0.375rem;
+        border-radius: 1rem;
         background: var(--signal);
         color: var(--signal-ink);
         font-weight: 650;
         box-shadow: none;
         min-height: 2.5rem;
-        transition: background-color 120ms ease-out, border-color 120ms ease-out;
+        transition: background-color 320ms ease-out, border-color 320ms ease-out, transform 320ms ease-out;
     }
     .stButton > button:hover, .stDownloadButton > button:hover,
     [data-testid="stFormSubmitButton"] > button:hover {
         border-color: var(--signal-hover);
         background: var(--signal-hover);
         color: var(--signal-ink);
+        transform: translateY(-1px);
     }
     .stButton > button:focus-visible, .stDownloadButton > button:focus-visible,
     [data-testid="stFormSubmitButton"] > button:focus-visible,
@@ -185,7 +199,7 @@ st.markdown(
     div[data-baseweb="input"] > div,
     [data-testid="stNumberInput"] input,
     textarea {
-        border-radius: 0.375rem !important;
+        border-radius: 0.875rem !important;
         background: var(--panel) !important;
         border-color: var(--line-strong) !important;
         color: var(--text) !important;
@@ -198,9 +212,9 @@ st.markdown(
 
     [data-testid="stForm"] {
         border: 1px solid var(--line);
-        border-radius: 0.5rem;
+        border-radius: 1.25rem;
         background: var(--panel);
-        padding: 0.25rem;
+        padding: 0.5rem;
     }
 
     button[data-baseweb="tab"] {
@@ -213,10 +227,10 @@ st.markdown(
 
     [data-testid="stDataFrame"], [data-testid="stTable"] {
         border: 1px solid var(--line);
-        border-radius: 0.375rem;
+        border-radius: 1rem;
     }
 
-    [data-testid="stAlert"] { border-radius: 0.375rem; border: 1px solid var(--line); }
+    [data-testid="stAlert"] { border-radius: 1rem; border: 1px solid var(--line); }
     hr { border-color: var(--line); }
     a { color: var(--signal) !important; }
 
@@ -285,14 +299,14 @@ def chart_style(chart: alt.Chart) -> alt.Chart:
             gridColor=GRID,
             domainColor=GRID,
             tickColor=GRID,
-            labelColor="#C7CCBF",
-            titleColor="#F1F4E9",
+            labelColor="#75684F",
+            titleColor="#3F4630",
             labelFont="monospace",
             titleFont="monospace",
         )
         .configure_legend(
-            labelColor="#C7CCBF",
-            titleColor="#F1F4E9",
+            labelColor="#75684F",
+            titleColor="#3F4630",
             labelFont="monospace",
             titleFont="monospace",
         )
@@ -529,7 +543,7 @@ with predict_tab:
             default_height="650px",
         )
         components.html(
-            '<style>html,body{margin:0;background:#FFFFFF;overflow:hidden;}</style>'
+            '<style>html,body{margin:0;background:#E8DCC7;overflow:hidden;}</style>'
             + motion_html,
             height=700,
             scrolling=False,
@@ -654,7 +668,7 @@ with compare_tab:
     )
     fit_cost_chart = (
         fit_base.mark_circle(size=180, color=ACCENT)
-        + fit_base.mark_text(align="left", dx=12, color="#F1F4E9").encode(
+        + fit_base.mark_text(align="left", dx=12, color="#3F4630").encode(
             text=alt.Text("fit_label:N")
         )
     ).properties(height=170, title="Training cost")
@@ -686,7 +700,7 @@ with compare_tab:
     )
     inference_cost_chart = (
         inference_base.mark_circle(size=180, color=ACCENT)
-        + inference_base.mark_text(align="left", dx=12, color="#F1F4E9").encode(
+        + inference_base.mark_text(align="left", dx=12, color="#3F4630").encode(
             text=alt.Text("inference_label:N")
         )
     ).properties(height=170, title="Inference cost")

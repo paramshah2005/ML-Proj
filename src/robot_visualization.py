@@ -18,15 +18,15 @@ JOINT_OFFSETS_RAD = np.array([0.0, 0.0, -np.pi, 0.0, 0.0, np.pi])
 FRAME_COUNT = 41
 FRAME_DURATION_MS = 50
 
-SURFACE = "#FFFFFF"
-TEXT = "#151518"
-MUTED = "#8A8A91"
-MUTED_LIGHT = "#68686F"
-GRID = "#DADADD"
-ACCENT = "#E4002B"
-ARM_BODY = "#C9C9CF"
-ARM_EDGE = "#4F4F56"
-JOINT_BODY = "#5F5F66"
+SURFACE = "#E8DCC7"
+TEXT = "#3F4630"
+MUTED = "#8A745D"
+MUTED_LIGHT = "#606C38"
+GRID = "#CDBA9C"
+ACCENT = "#C66B3D"
+ARM_BODY = "#B08B6E"
+ARM_EDGE = "#606C38"
+JOINT_BODY = "#8B9D83"
 LINK_RADII_MM = np.array([145.0, 128.0, 108.0, 90.0, 70.0, 52.0])
 JOINT_RADII_MM = np.array([185.0, 168.0, 148.0, 122.0, 94.0, 72.0])
 
@@ -487,7 +487,7 @@ def build_motion_figure(
             mode="lines+text",
             line={"color": TEXT, "width": 3, "dash": "dot"},
             text=[None, "X", None, None, "Y", None, None, "Z", None],
-            textfont={"color": TEXT, "family": "Helvetica Neue, Arial, sans-serif", "size": 12},
+            textfont={"color": TEXT, "family": "Epilogue, Segoe UI, sans-serif", "size": 12},
             textposition="top center",
             hoverinfo="skip",
             name="Desired orientation",
@@ -537,7 +537,7 @@ def build_motion_figure(
             mode="lines+text",
             line={"color": MUTED_LIGHT, "width": 5},
             text=[None, "X", None, None, "Y", None, None, "Z", None],
-            textfont={"color": MUTED_LIGHT, "family": "Helvetica Neue, Arial, sans-serif", "size": 12},
+            textfont={"color": MUTED_LIGHT, "family": "Epilogue, Segoe UI, sans-serif", "size": 12},
             textposition="top center",
             hoverinfo="skip",
             name="Predicted tool axes",
@@ -622,7 +622,7 @@ def build_motion_figure(
         title={"text": "Motion progress: 0%", "font": {"size": 14, "color": TEXT}},
         paper_bgcolor=SURFACE,
         plot_bgcolor=SURFACE,
-        font={"family": "Helvetica Neue, Arial, sans-serif", "color": TEXT},
+        font={"family": "Epilogue, Segoe UI, sans-serif", "color": TEXT},
         height=650,
         margin={"l": 0, "r": 0, "t": 45, "b": 80},
         legend={
