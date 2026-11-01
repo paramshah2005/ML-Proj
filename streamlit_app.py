@@ -56,9 +56,9 @@ MODEL_LABELS = MODEL_CATALOG.copy()
 MODEL_DISPLAY = {value: key for key, value in MODEL_CATALOG.items()}
 REQUIRED_MODEL_KEYS = ("linear_regression", "rbf_svr", "decision_tree")
 MODEL_ARTIFACT_FILES = ("model.joblib", "metrics.json", "per_joint_metrics.csv", "test_predictions.csv")
-ACCENT = "#C6FF4A"
-MUTED = "#788071"
-GRID = "#30352C"
+ACCENT = "#E4002B"
+MUTED = "#8A8A91"
+GRID = "#DADADD"
 JOINT_LIMITS_RAD = np.array(
     [
         [-np.pi, np.pi],
@@ -84,17 +84,25 @@ st.markdown(
     """
     <style>
     :root {
-        --surface: #0B0C0A;
-        --panel: #111310;
-        --panel-2: #151813;
-        --line: #30352C;
-        --text: #F1F4E9;
-        --muted: #92998A;
-        --signal: #C6FF4A;
+        --surface: #F7F7F8;
+        --panel: #FFFFFF;
+        --panel-2: #F0F0F2;
+        --line: #DADADD;
+        --line-strong: #AFAFB5;
+        --text: #151518;
+        --muted: #68686F;
+        --signal: #E4002B;
+        --signal-hover: #B60022;
+        --signal-ink: #FFFFFF;
+        --focus: #002FA7;
+    }
+
+    html, body {
+        overflow-x: clip;
     }
 
     html, body, [class*="st-"], [class*="css"] {
-        font-family: "IBM Plex Mono", "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
         font-variant-numeric: tabular-nums;
     }
 
@@ -104,100 +112,111 @@ st.markdown(
     }
 
     [data-testid="stHeader"] {
-        background: rgba(11, 12, 10, 0.92);
+        background: var(--surface);
         border-bottom: 1px solid var(--line);
     }
 
     [data-testid="stToolbar"] { right: 1rem; }
-    .block-container { max-width: 1440px; padding-top: 2.1rem; padding-bottom: 4rem; }
+    .block-container { max-width: 1440px; padding-top: 1.5rem; padding-bottom: 4rem; }
 
     h1, h2, h3, p, label, div { letter-spacing: 0; }
-    h1, h2, h3 { color: var(--text); font-weight: 600; }
-    h1 { font-size: clamp(2rem, 5vw, 4.7rem); line-height: 0.96; margin: 0.35rem 0 1rem; }
-    h2 { font-size: 1.45rem; border-top: 1px solid var(--line); padding-top: 1rem; }
-    h3 { font-size: 1rem; color: var(--signal); }
+    h1, h2, h3 { color: var(--text); font-weight: 650; }
+    h1 { font-size: 2rem; line-height: 1.1; margin: 0; }
+    h2 { font-size: 1.55rem; border-top: 1px solid var(--line); padding-top: 1.25rem; }
+    h3 { font-size: 1.05rem; color: var(--text); }
 
     .hero {
-        border: 1px solid var(--line);
-        border-left: 4px solid var(--signal);
-        background: var(--panel);
-        padding: clamp(1.1rem, 3vw, 2.2rem);
-        margin-bottom: 1.2rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 2rem;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        padding: 0.75rem 0 1.25rem;
+        margin-bottom: 0.75rem;
     }
 
-    .kicker {
-        color: var(--signal);
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-    }
-
-    .hero-copy { max-width: 850px; color: var(--muted); margin: 0; }
     .status-line {
         display: flex;
-        gap: 0.8rem;
+        gap: 1rem;
         align-items: center;
-        margin-top: 1.2rem;
+        margin: 0;
         color: var(--muted);
-        font-size: 0.82rem;
+        font-size: 0.875rem;
+        white-space: nowrap;
     }
-    .status-dot { width: 9px; height: 9px; background: var(--signal); display: inline-block; }
 
     [data-testid="stMetric"] {
-        border: 1px solid var(--line);
+        border-top: 1px solid var(--line);
         border-radius: 0;
-        background: var(--panel);
-        padding: 0.9rem 1rem;
+        background: transparent;
+        padding: 0.8rem 0;
     }
     [data-testid="stMetricLabel"] { color: var(--muted); }
-    [data-testid="stMetricValue"] { color: var(--text); font-size: 1.45rem; }
+    [data-testid="stMetricValue"] {
+        color: var(--text);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 1.35rem;
+    }
 
     .stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button {
         border: 1px solid var(--signal);
-        border-radius: 0;
+        border-radius: 0.375rem;
         background: var(--signal);
-        color: #0B0C0A;
-        font-weight: 800;
+        color: var(--signal-ink);
+        font-weight: 650;
         box-shadow: none;
+        min-height: 2.5rem;
+        transition: background-color 120ms ease-out, border-color 120ms ease-out;
     }
     .stButton > button:hover, .stDownloadButton > button:hover,
     [data-testid="stFormSubmitButton"] > button:hover {
-        border-color: #F1F4E9;
-        background: #F1F4E9;
-        color: #0B0C0A;
+        border-color: var(--signal-hover);
+        background: var(--signal-hover);
+        color: var(--signal-ink);
+    }
+    .stButton > button:focus-visible, .stDownloadButton > button:focus-visible,
+    [data-testid="stFormSubmitButton"] > button:focus-visible,
+    button[data-baseweb="tab"]:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
     }
 
     div[data-baseweb="select"] > div,
     div[data-baseweb="input"] > div,
     [data-testid="stNumberInput"] input,
     textarea {
-        border-radius: 0 !important;
+        border-radius: 0.375rem !important;
         background: var(--panel) !important;
-        border-color: var(--line) !important;
+        border-color: var(--line-strong) !important;
         color: var(--text) !important;
+    }
+
+    [data-testid="stNumberInput"] input,
+    div[data-baseweb="select"] span {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     }
 
     [data-testid="stForm"] {
         border: 1px solid var(--line);
-        border-radius: 0;
+        border-radius: 0.5rem;
         background: var(--panel);
+        padding: 0.25rem;
     }
 
     button[data-baseweb="tab"] {
         border-radius: 0;
         color: var(--muted);
-        font-weight: 700;
+        font-weight: 500;
     }
     button[data-baseweb="tab"][aria-selected="true"] { color: var(--signal); }
     [data-baseweb="tab-highlight"] { background-color: var(--signal); }
 
     [data-testid="stDataFrame"], [data-testid="stTable"] {
         border: 1px solid var(--line);
-        border-radius: 0;
+        border-radius: 0.375rem;
     }
 
-    [data-testid="stAlert"] { border-radius: 0; border: 1px solid var(--line); }
+    [data-testid="stAlert"] { border-radius: 0.375rem; border: 1px solid var(--line); }
     hr { border-color: var(--line); }
     a { color: var(--signal) !important; }
 
@@ -210,6 +229,19 @@ st.markdown(
         font-size: 0.82rem;
     }
     .readout strong { color: var(--signal); }
+
+    @media (max-width: 60rem) {
+        .hero { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
+        .status-line { white-space: normal; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -293,14 +325,8 @@ def metric_pair(actual: np.ndarray, predicted: np.ndarray) -> tuple[float, float
 st.markdown(
     """
     <section class="hero">
-        <div class="kicker">ABB IRB2400 / six-axis regression</div>
-        <h1>Joint target<br>control console</h1>
-        <p class="hero-copy">
-            Predict six desired joint angles from Cartesian pose, end-effector orientation,
-            and the robot's current six-joint state. Compare the available trained regressors
-            against the same pose-safe test split.
-        </p>
-        <div class="status-line"><span class="status-dot"></span>TRAINED ARTIFACTS READY · 12 INPUTS · 6 OUTPUTS</div>
+        <h1>IRB2400 Joint Predictor</h1>
+        <p class="status-line">Trained artifacts ready&nbsp;&nbsp; 12 inputs&nbsp;&nbsp; 6 outputs</p>
     </section>
     """,
     unsafe_allow_html=True,
@@ -319,7 +345,7 @@ comparison = comparison[comparison["model"].isin(MODEL_LABELS.values())].reset_i
 comparison["display_model"] = comparison["model"].map(display_name)
 
 predict_tab, compare_tab, analysis_tab, method_tab = st.tabs(
-    ["PREDICT", "MODEL COMPARISON", "TEST-SET ANALYSIS", "METHOD"]
+    ["Predict", "Model comparison", "Test-set analysis", "Method"]
 )
 
 
@@ -424,12 +450,12 @@ with predict_tab:
         run_col, random_col = st.columns(2)
         with run_col:
             submitted = st.form_submit_button(
-                "RUN PREDICTION",
+                "Run prediction",
                 use_container_width=True,
             )
         with random_col:
             st.form_submit_button(
-                "RANDOM INPUT",
+                "Random input",
                 use_container_width=True,
                 on_click=populate_random_input,
             )
@@ -503,7 +529,7 @@ with predict_tab:
             default_height="650px",
         )
         components.html(
-            '<style>html,body{margin:0;background:#0B0C0A;overflow:hidden;}</style>'
+            '<style>html,body{margin:0;background:#FFFFFF;overflow:hidden;}</style>'
             + motion_html,
             height=700,
             scrolling=False,
@@ -544,7 +570,7 @@ with predict_tab:
             st.caption("Actual output is hidden because at least one held-out input was edited.")
 
         st.download_button(
-            "DOWNLOAD OUTPUT CSV",
+            "Download output CSV",
             data=result.to_csv(index=False).encode("utf-8"),
             file_name=f"{selected_key}_joint_prediction.csv",
             mime="text/csv",

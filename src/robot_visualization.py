@@ -18,12 +18,12 @@ JOINT_OFFSETS_RAD = np.array([0.0, 0.0, -np.pi, 0.0, 0.0, np.pi])
 FRAME_COUNT = 41
 FRAME_DURATION_MS = 50
 
-SURFACE = "#0B0C0A"
-TEXT = "#F1F4E9"
-MUTED = "#788071"
-MUTED_LIGHT = "#B6BBAE"
-GRID = "#30352C"
-ACCENT = "#C6FF4A"
+SURFACE = "#FFFFFF"
+TEXT = "#151518"
+MUTED = "#8A8A91"
+MUTED_LIGHT = "#68686F"
+GRID = "#DADADD"
+ACCENT = "#E4002B"
 
 
 def _as_finite_vector(values: Iterable[float], length: int, label: str) -> np.ndarray:
@@ -359,7 +359,7 @@ def build_motion_figure(
             mode="lines+text",
             line={"color": TEXT, "width": 3, "dash": "dot"},
             text=[None, "X", None, None, "Y", None, None, "Z", None],
-            textfont={"color": TEXT, "family": "monospace", "size": 12},
+            textfont={"color": TEXT, "family": "Helvetica Neue, Arial, sans-serif", "size": 12},
             textposition="top center",
             hoverinfo="skip",
             name="Desired orientation",
@@ -409,7 +409,7 @@ def build_motion_figure(
             mode="lines+text",
             line={"color": MUTED_LIGHT, "width": 5},
             text=[None, "X", None, None, "Y", None, None, "Z", None],
-            textfont={"color": MUTED_LIGHT, "family": "monospace", "size": 12},
+            textfont={"color": MUTED_LIGHT, "family": "Helvetica Neue, Arial, sans-serif", "size": 12},
             textposition="top center",
             hoverinfo="skip",
             name="Predicted tool axes",
@@ -461,7 +461,7 @@ def build_motion_figure(
         title={"text": "Motion progress: 0%", "font": {"size": 14, "color": TEXT}},
         paper_bgcolor=SURFACE,
         plot_bgcolor=SURFACE,
-        font={"family": "monospace", "color": TEXT},
+        font={"family": "Helvetica Neue, Arial, sans-serif", "color": TEXT},
         height=650,
         margin={"l": 0, "r": 0, "t": 45, "b": 80},
         legend={

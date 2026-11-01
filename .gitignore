@@ -31,7 +31,8 @@ dist/
 .DS_Store
 Thumbs.db
 Desktop.ini
-
+.hallmark/
+mockups/
 # Notebook checkpoints
 .ipynb_checkpoints/
 
@@ -50,6 +51,8 @@ Desktop.ini
 # Experiment-tracking output
 /mlruns/
 /wandb/
+/paper_review
+/inverse_kinematics_ml_presentation
 
 # Keep trained dashboard assets in GitHub.
 # Do not ignore artifacts/**/*.joblib, artifacts/**/*.json, or
