@@ -24,6 +24,11 @@ MUTED = "#8A8A91"
 MUTED_LIGHT = "#68686F"
 GRID = "#DADADD"
 ACCENT = "#E4002B"
+ARM_BODY = "#C9C9CF"
+ARM_EDGE = "#4F4F56"
+JOINT_BODY = "#5F5F66"
+LINK_RADII_MM = np.array([145.0, 128.0, 108.0, 90.0, 70.0, 52.0])
+JOINT_RADII_MM = np.array([185.0, 168.0, 148.0, 122.0, 94.0, 72.0])
 
 
 def _as_finite_vector(values: Iterable[float], length: int, label: str) -> np.ndarray:
@@ -244,6 +249,127 @@ def _base_coordinates(radius: float = 175.0, height: float = 90.0) -> tuple[list
     return x, y, z
 
 
+def _arm_mesh_coordinates(
+    positions: np.ndarray,
+    joint_origins: np.ndarray,
+    joint_axes: np.ndarray,
+    sides: int = 14,
+) -> dict[str, list[float] | list[int]]:
+    """Build one articulated, tapered mesh from the seven FK node positions."""
+    vertices: list[np.ndarray] = []
+    vertex_colors: list[str] = []
+    faces_i: list[int] = []
+    faces_j: list[int] = []
+    faces_k: list[int] = []
+    angles = np.linspace(0.0, 2.0 * np.pi, sides, endpoint=False)
+
+    for index, (start, end) in enumerate(zip(positions[:-1], positions[1:], strict=True)):
+        direction = end - start
+        length = float(np.linalg.norm(direction))
+        if length < 1e-9:
+            continue
+        direction /= length
+        helper = np.array([0.0, 0.0, 1.0])
+        if abs(float(np.dot(direction, helper))) > 0.9:
+            helper = np.array([1.0, 0.0, 0.0])
+        basis_u = np.cross(direction, helper)
+        basis_u /= np.linalg.norm(basis_u)
+        basis_v = np.cross(direction, basis_u)
+
+        start_radius = LINK_RADII_MM[index]
+        end_radius = start_radius * 0.82
+        start_ring = [
+            start + start_radius * (np.cos(angle) * basis_u + np.sin(angle) * basis_v)
+            for angle in angles
+        ]
+        end_ring = [
+            end + end_radius * (np.cos(angle) * basis_u + np.sin(angle) * basis_v)
+            for angle in angles
+        ]
+        offset = len(vertices)
+        vertices.extend(start_ring)
+        vertices.extend(end_ring)
+        vertex_colors.extend([ARM_BODY] * (sides * 2))
+        start_center = len(vertices)
+        vertices.append(start)
+        vertex_colors.append(ARM_BODY)
+        end_center = len(vertices)
+        vertices.append(end)
+        vertex_colors.append(ARM_BODY)
+
+        for side in range(sides):
+            next_side = (side + 1) % sides
+            start_a = offset + side
+            start_b = offset + next_side
+            end_a = offset + sides + side
+            end_b = offset + sides + next_side
+            faces_i.extend([start_a, start_a, start_center, end_center])
+            faces_j.extend([start_b, end_b, start_b, end_a])
+            faces_k.extend([end_b, end_a, start_a, end_b])
+
+    latitude_steps = 8
+    for center, axis, radius in zip(
+        joint_origins, joint_axes, JOINT_RADII_MM, strict=True
+    ):
+        helper = np.array([0.0, 0.0, 1.0])
+        if abs(float(np.dot(axis, helper))) > 0.9:
+            helper = np.array([1.0, 0.0, 0.0])
+        basis_u = np.cross(axis, helper)
+        basis_u /= np.linalg.norm(basis_u)
+        basis_v = np.cross(axis, basis_u)
+        half_length = radius * 0.55
+        top_index = len(vertices)
+        vertices.append(center + axis * half_length)
+        vertex_colors.append(JOINT_BODY)
+        ring_offsets: list[int] = []
+        for latitude in range(1, latitude_steps):
+            phi = np.pi * latitude / latitude_steps
+            ring_offsets.append(len(vertices))
+            for angle in angles:
+                vertices.append(
+                    center
+                    + radius
+                    * np.sin(phi)
+                    * (np.cos(angle) * basis_u + np.sin(angle) * basis_v)
+                    + half_length * np.cos(phi) * axis
+                )
+                vertex_colors.append(JOINT_BODY)
+        bottom_index = len(vertices)
+        vertices.append(center - axis * half_length)
+        vertex_colors.append(JOINT_BODY)
+
+        first_ring = ring_offsets[0]
+        last_ring = ring_offsets[-1]
+        for side in range(sides):
+            next_side = (side + 1) % sides
+            faces_i.append(top_index)
+            faces_j.append(first_ring + next_side)
+            faces_k.append(first_ring + side)
+            faces_i.append(bottom_index)
+            faces_j.append(last_ring + side)
+            faces_k.append(last_ring + next_side)
+
+        for ring_index in range(len(ring_offsets) - 1):
+            upper = ring_offsets[ring_index]
+            lower = ring_offsets[ring_index + 1]
+            for side in range(sides):
+                next_side = (side + 1) % sides
+                faces_i.extend([upper + side, upper + side])
+                faces_j.extend([upper + next_side, lower + next_side])
+                faces_k.extend([lower + next_side, lower + side])
+
+    vertex_array = np.asarray(vertices, dtype=float)
+    return {
+        "x": vertex_array[:, 0].tolist(),
+        "y": vertex_array[:, 1].tolist(),
+        "z": vertex_array[:, 2].tolist(),
+        "i": faces_i,
+        "j": faces_j,
+        "k": faces_k,
+        "vertexcolor": vertex_colors,
+    }
+
+
 def _motion_coordinates(joints: np.ndarray) -> dict[str, object]:
     transforms = forward_kinematics(joints)
     positions, joint_origins, joint_axes = _joint_geometry(transforms)
@@ -252,6 +378,7 @@ def _motion_coordinates(joints: np.ndarray) -> dict[str, object]:
     return {
         "transforms": transforms,
         "positions": positions,
+        "arm_mesh": _arm_mesh_coordinates(positions, joint_origins, joint_axes),
         "joint_origins": joint_origins,
         "joint_axes": axis_coordinates,
         "tool_axes": tool_coordinates,
@@ -294,6 +421,7 @@ def build_motion_figure(
     initial_joint_origins = motion[0]["joint_origins"]
     initial_axis_x, initial_axis_y, initial_axis_z = motion[0]["joint_axes"]
     initial_tool_x, initial_tool_y, initial_tool_z = motion[0]["tool_axes"]
+    initial_mesh = motion[0]["arm_mesh"]
 
     figure = go.Figure()
     figure.add_trace(
@@ -415,6 +543,29 @@ def build_motion_figure(
             name="Predicted tool axes",
         )
     )
+    figure.add_trace(
+        go.Mesh3d(
+            x=initial_mesh["x"],
+            y=initial_mesh["y"],
+            z=initial_mesh["z"],
+            i=initial_mesh["i"],
+            j=initial_mesh["j"],
+            k=initial_mesh["k"],
+            vertexcolor=initial_mesh["vertexcolor"],
+            flatshading=False,
+            lighting={
+                "ambient": 0.58,
+                "diffuse": 0.86,
+                "specular": 0.18,
+                "roughness": 0.72,
+                "fresnel": 0.08,
+            },
+            lightposition={"x": 900, "y": -1200, "z": 2400},
+            hoverinfo="skip",
+            name="Robot body",
+            showlegend=False,
+        )
+    )
 
     frames: list[go.Frame] = []
     for index, (fraction, geometry) in enumerate(zip(fractions, motion, strict=True)):
@@ -422,6 +573,7 @@ def build_motion_figure(
         joint_origins = geometry["joint_origins"]
         axis_x, axis_y, axis_z = geometry["joint_axes"]
         tool_x, tool_y, tool_z = geometry["tool_axes"]
+        arm_mesh = geometry["arm_mesh"]
         frames.append(
             go.Frame(
                 name=str(index),
@@ -434,8 +586,17 @@ def build_motion_figure(
                     ),
                     go.Scatter3d(x=axis_x, y=axis_y, z=axis_z),
                     go.Scatter3d(x=tool_x, y=tool_y, z=tool_z),
+                    go.Mesh3d(
+                        x=arm_mesh["x"],
+                        y=arm_mesh["y"],
+                        z=arm_mesh["z"],
+                        i=arm_mesh["i"],
+                        j=arm_mesh["j"],
+                        k=arm_mesh["k"],
+                        vertexcolor=arm_mesh["vertexcolor"],
+                    ),
                 ],
-                traces=[5, 6, 7, 8],
+                traces=[5, 6, 7, 8, 9],
                 layout=go.Layout(title_text=f"Motion progress: {fraction:.0%}"),
             )
         )
@@ -495,7 +656,7 @@ def build_motion_figure(
                 "color": MUTED_LIGHT,
             },
             "aspectmode": "data",
-            "camera": {"eye": {"x": 1.5, "y": -1.7, "z": 1.15}},
+            "camera": {"eye": {"x": 1.12, "y": -1.32, "z": 0.9}},
             "dragmode": "orbit",
         },
         updatemenus=[
