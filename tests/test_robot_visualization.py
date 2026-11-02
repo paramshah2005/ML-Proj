@@ -18,6 +18,7 @@ from robot_visualization import (  # noqa: E402
     calculate_pose_error,
     calculate_pose_errors_batch,
     forward_kinematics,
+    minimum_motion_z,
     tool_pose_from_joints,
 )
 
@@ -105,6 +106,12 @@ class RobotVisualizationTests(unittest.TestCase):
         self.assertTrue(np.isfinite(figure.layout.scene.xaxis.range).all())
         self.assertTrue(np.isfinite(figure.layout.scene.yaxis.range).all())
         self.assertTrue(np.isfinite(figure.layout.scene.zaxis.range).all())
+
+    def test_ground_clearance_detects_below_floor_motion(self) -> None:
+        safe = np.zeros(6)
+        unsafe = np.array([0.0, 1.7, 1.0, 0.0, 0.0, 0.0])
+        self.assertGreaterEqual(minimum_motion_z(safe, safe), 0.0)
+        self.assertLess(minimum_motion_z(safe, unsafe), 0.0)
 
 
 if __name__ == "__main__":

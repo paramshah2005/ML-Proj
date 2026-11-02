@@ -70,6 +70,23 @@ def forward_kinematics(joints: Iterable[float]) -> np.ndarray:
     return np.stack(transforms)
 
 
+def minimum_motion_z(
+    current: Iterable[float],
+    predicted: Iterable[float],
+    frame_count: int = FRAME_COUNT,
+) -> float:
+    """Return the lowest robot-node Z value over a linear joint-space motion."""
+    current_vector = _as_finite_vector(current, 6, "current")
+    predicted_vector = _as_finite_vector(predicted, 6, "predicted")
+    if frame_count < 2:
+        raise ValueError("frame_count must be at least 2.")
+    minimum_z = np.inf
+    for fraction in np.linspace(0.0, 1.0, frame_count):
+        joints = current_vector + fraction * (predicted_vector - current_vector)
+        minimum_z = min(minimum_z, float(np.min(forward_kinematics(joints)[:, 2, 3])))
+    return float(minimum_z)
+
+
 def tool_pose_from_joints(joints: Iterable[float]) -> np.ndarray:
     """Return x, y, z, yaw, pitch, roll using the dashboard's Rz-Ry-Rx convention."""
     tool = forward_kinematics(joints)[-1]

@@ -27,6 +27,7 @@ from robot_visualization import (  # noqa: E402
     build_motion_figure,
     calculate_pose_error,
     forward_kinematics,
+    minimum_motion_z,
     tool_pose_from_joints,
 )
 
@@ -391,42 +392,56 @@ with predict_tab:
         lower_limits = JOINT_LIMITS_RAD[:, 0]
         upper_limits = JOINT_LIMITS_RAD[:, 1]
 
-        target_poses: list[np.ndarray] = []
-        while len(target_poses) < RANDOM_CANDIDATE_COUNT:
-            target_joints = rng.uniform(lower_limits, upper_limits)
-            target_pose = tool_pose_from_joints(target_joints)
-            if target_pose[2] >= 0.0:
-                target_poses.append(target_pose)
+        safe_candidates: list[tuple[pd.Series, float]] = []
+        for _ in range(4):
+            target_poses: list[np.ndarray] = []
+            current_poses: list[np.ndarray] = []
+            while len(target_poses) < RANDOM_CANDIDATE_COUNT:
+                target_joints = rng.uniform(lower_limits, upper_limits)
+                target_pose = tool_pose_from_joints(target_joints)
+                current_joints = rng.uniform(lower_limits, upper_limits)
+                current_minimum_z = float(
+                    np.min(forward_kinematics(current_joints)[:, 2, 3])
+                )
+                if target_pose[2] >= 0.0 and current_minimum_z >= 0.0:
+                    target_poses.append(target_pose)
+                    current_poses.append(current_joints)
 
-        pose_candidates = np.vstack(target_poses)
-        current_candidates = rng.uniform(
-            lower_limits,
-            upper_limits,
-            size=(RANDOM_CANDIDATE_COUNT, 6),
-        )
-        candidate_inputs = pd.DataFrame(
-            np.column_stack([pose_candidates, current_candidates]),
-            columns=FEATURES,
-        )
-        candidate_predictions = np.asarray(
-            load_model(selected_key).predict(candidate_inputs),
-            dtype=float,
-        )
-
-        motion_scores = np.empty(RANDOM_CANDIDATE_COUNT, dtype=float)
-        for index, (current_joints, predicted_joints) in enumerate(
-            zip(current_candidates, candidate_predictions, strict=True)
-        ):
-            current_nodes = forward_kinematics(current_joints)[:, :3, 3]
-            predicted_nodes = forward_kinematics(predicted_joints)[:, :3, 3]
-            motion_scores[index] = np.mean(
-                np.linalg.norm(predicted_nodes - current_nodes, axis=1)
+            pose_candidates = np.vstack(target_poses)
+            current_candidates = np.vstack(current_poses)
+            candidate_inputs = pd.DataFrame(
+                np.column_stack([pose_candidates, current_candidates]),
+                columns=FEATURES,
+            )
+            candidate_predictions = np.asarray(
+                load_model(selected_key).predict(candidate_inputs),
+                dtype=float,
             )
 
-        top_count = max(1, RANDOM_CANDIDATE_COUNT // 10)
-        top_indices = np.argpartition(motion_scores, -top_count)[-top_count:]
-        selected_index = int(rng.choice(top_indices))
-        random_input = candidate_inputs.iloc[selected_index]
+            for index, (current_joints, predicted_joints) in enumerate(
+                zip(current_candidates, candidate_predictions, strict=True)
+            ):
+                if minimum_motion_z(current_joints, predicted_joints) < 0.0:
+                    continue
+                current_nodes = forward_kinematics(current_joints)[:, :3, 3]
+                predicted_nodes = forward_kinematics(predicted_joints)[:, :3, 3]
+                motion_score = float(
+                    np.mean(np.linalg.norm(predicted_nodes - current_nodes, axis=1))
+                )
+                safe_candidates.append((candidate_inputs.iloc[index], motion_score))
+            if len(safe_candidates) >= 10:
+                break
+
+        if not safe_candidates:
+            st.session_state["random_input_error"] = (
+                "No above-ground trajectory was found. Try Random input again."
+            )
+            return
+
+        safe_candidates.sort(key=lambda candidate: candidate[1], reverse=True)
+        top_count = max(1, len(safe_candidates) // 10)
+        random_input = safe_candidates[int(rng.integers(0, top_count))][0]
+        st.session_state.pop("random_input_error", None)
 
         for feature in FEATURES[:6]:
             st.session_state[
@@ -475,9 +490,11 @@ with predict_tab:
             )
         st.caption(
             "Random input explores the full joint-limit workspace, keeps the desired Z at or "
-            "above zero, and favors visible motion. Wide-range combinations may be outside the "
-            "training distribution."
+            "above zero, rejects any trajectory that crosses below the ground plane, and favors "
+            "visible motion. Wide-range combinations may be outside the training distribution."
         )
+        if random_input_error := st.session_state.get("random_input_error"):
+            st.warning(random_input_error)
 
     if submitted:
         input_frame = pd.DataFrame([[values[name] for name in FEATURES]], columns=FEATURES)
@@ -518,7 +535,7 @@ with predict_tab:
 
         target_pose = np.array([values[name] for name in FEATURES[:6]], dtype=float)
         pose_error = calculate_pose_error(predicted, target_pose)
-        motion_figure = build_motion_figure(current, predicted, target_pose)
+        trajectory_minimum_z = minimum_motion_z(current, predicted)
 
         st.markdown("#### 3D motion preview")
         position_col, orientation_col = st.columns(2)
@@ -530,25 +547,35 @@ with predict_tab:
             "Predicted orientation difference",
             f'{pose_error["orientation_error_deg"]:.2f}°',
         )
-        motion_html = motion_figure.to_html(
-            full_html=False,
-            include_plotlyjs=True,
-            auto_play=False,
-            config={
-                "displaylogo": False,
-                "responsive": True,
-                "scrollZoom": True,
-            },
-            default_width="100%",
-            default_height="650px",
-        )
-        components.html(
-            '<style>html,body{margin:0;background:#FEEFDD;overflow:hidden;}</style>'
-            + motion_html,
-            height=700,
-            scrolling=False,
-        )
-        st.caption("Dataset-calibrated kinematic visualization; motion is not collision checked.")
+        if target_pose[2] < 0.0 or trajectory_minimum_z < 0.0:
+            st.error(
+                "Motion preview blocked: this trajectory crosses below Z = 0. "
+                "Choose another held-out row, use Random input, or edit the pose and joints."
+            )
+        else:
+            motion_figure = build_motion_figure(current, predicted, target_pose)
+            motion_html = motion_figure.to_html(
+                full_html=False,
+                include_plotlyjs=True,
+                auto_play=False,
+                config={
+                    "displaylogo": False,
+                    "responsive": True,
+                    "scrollZoom": True,
+                },
+                default_width="100%",
+                default_height="650px",
+            )
+            components.html(
+                '<style>html,body{margin:0;background:#FEEFDD;overflow:hidden;}</style>'
+                + motion_html,
+                height=700,
+                scrolling=False,
+            )
+            st.caption(
+                "Dataset-calibrated kinematic visualization; motion stays at or above Z = 0 "
+                "and is not collision checked."
+            )
 
         chart_frame = result[["joint", "current_rad", "predicted_rad"]].melt(
             "joint", var_name="signal", value_name="angle_rad"
