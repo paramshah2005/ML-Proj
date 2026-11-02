@@ -33,6 +33,8 @@ Thumbs.db
 Desktop.ini
 .hallmark/
 mockups/
+output/
+.codex_build/
 # Notebook checkpoints
 .ipynb_checkpoints/
 

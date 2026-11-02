@@ -56,9 +56,9 @@ MODEL_LABELS = MODEL_CATALOG.copy()
 MODEL_DISPLAY = {value: key for key, value in MODEL_CATALOG.items()}
 REQUIRED_MODEL_KEYS = ("linear_regression", "rbf_svr", "decision_tree")
 MODEL_ARTIFACT_FILES = ("model.joblib", "metrics.json", "per_joint_metrics.csv", "test_predictions.csv")
-ACCENT = "#C66B3D"
-MUTED = "#8A745D"
-GRID = "#CDBA9C"
+ACCENT = "#FF4000"
+MUTED = "#50B2C0"
+GRID = "#FAAA8D"
 JOINT_LIMITS_RAD = np.array(
     [
         [-np.pi, np.pi],
@@ -86,17 +86,17 @@ st.markdown(
     @import url("https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700&display=swap");
 
     :root {
-        --surface: #E8DCC7;
-        --panel: #DFCCAD;
-        --panel-2: #D4B895;
-        --line: #C5A886;
-        --line-strong: #A47D5F;
-        --text: #3F4630;
-        --muted: #75684F;
-        --signal: #C66B3D;
-        --signal-hover: #A95532;
-        --signal-ink: #2E251D;
-        --focus: #C08E3A;
+        --surface: #FEEFDD;
+        --panel: #FAAA8D;
+        --panel-2: #50B2C0;
+        --line: #FAAA8D;
+        --line-strong: #201E1F;
+        --text: #201E1F;
+        --muted: #201E1F;
+        --signal: #FF4000;
+        --signal-hover: #FAAA8D;
+        --signal-ink: #201E1F;
+        --focus: #50B2C0;
     }
 
     html, body {
@@ -299,14 +299,14 @@ def chart_style(chart: alt.Chart) -> alt.Chart:
             gridColor=GRID,
             domainColor=GRID,
             tickColor=GRID,
-            labelColor="#75684F",
-            titleColor="#3F4630",
+            labelColor="#201E1F",
+            titleColor="#201E1F",
             labelFont="monospace",
             titleFont="monospace",
         )
         .configure_legend(
-            labelColor="#75684F",
-            titleColor="#3F4630",
+            labelColor="#201E1F",
+            titleColor="#201E1F",
             labelFont="monospace",
             titleFont="monospace",
         )
@@ -543,7 +543,7 @@ with predict_tab:
             default_height="650px",
         )
         components.html(
-            '<style>html,body{margin:0;background:#E8DCC7;overflow:hidden;}</style>'
+            '<style>html,body{margin:0;background:#FEEFDD;overflow:hidden;}</style>'
             + motion_html,
             height=700,
             scrolling=False,
@@ -668,7 +668,7 @@ with compare_tab:
     )
     fit_cost_chart = (
         fit_base.mark_circle(size=180, color=ACCENT)
-        + fit_base.mark_text(align="left", dx=12, color="#3F4630").encode(
+        + fit_base.mark_text(align="left", dx=12, color="#201E1F").encode(
             text=alt.Text("fit_label:N")
         )
     ).properties(height=170, title="Training cost")
@@ -700,7 +700,7 @@ with compare_tab:
     )
     inference_cost_chart = (
         inference_base.mark_circle(size=180, color=ACCENT)
-        + inference_base.mark_text(align="left", dx=12, color="#3F4630").encode(
+        + inference_base.mark_text(align="left", dx=12, color="#201E1F").encode(
             text=alt.Text("inference_label:N")
         )
     ).properties(height=170, title="Inference cost")
